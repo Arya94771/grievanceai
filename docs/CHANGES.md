@@ -15,7 +15,25 @@ This document details key architectural decisions, scope boundaries, and pivots 
 
 ---
 
-## 2. Deferred Features (Reserved for Round 3)
+## 2. In-Memory Concurrency Limiter vs. External Job Queue
+- **Original Plan**: Deploying an external Redis / BullMQ worker queue for background processing of AI reviews.
+- **Adopted Pivot**: A lightweight in-memory async mutex queue inside Express manages concurrent Gemini requests on the free tier.
+- **Technical Justification**:
+  - Avoids requiring an external paid Redis service or complicated multi-container setup.
+  - Keeps deployment strictly within the **single free Render Web Service** limit while completely preventing free-tier concurrent rate-limit errors.
+
+---
+
+## 3. Precomputed Seed Cache vs. Pure On-Demand Review
+- **Original Plan**: Running all reviews dynamically on demand via live LLM calls.
+- **Adopted Pivot**: All 3 seeded sample drafts are precomputed and cached in `ReviewCache` and `Finding` collections at seed time.
+- **Technical Justification**:
+  - Delivers an instantaneous "60-second try" experience for judges: when a judge opens any sample draft, findings and highlighted text spans render in **under 100ms**.
+  - A prominent "Re-run for live review" button remains available if the judge wishes to trigger a live call.
+
+---
+
+## 4. Deferred Features (Reserved for Round 3)
 Per the hackathon brief and product focus:
 1. **Multimodal / Image Asset Review**:
    - Automated visual analysis of image pixels, color palettes, and logo spacing is deferred.

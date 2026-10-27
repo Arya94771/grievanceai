@@ -4,12 +4,12 @@ GrievanceAI is an autonomous brand-governance and content compliance platform en
 
 ---
 
-## Completed Features
+## Completed Tasks & Features (Full Specification)
 
-### 1. Demo-First UX & Authentication (T3)
-- **One-Click Demo Logins**: Dedicated buttons for **Creator**, **Manager**, **Reviewer**, and **Admin** — zero signup required.
-- **Judge's 60-Second Walkthrough**: Guided 4-step workflow banner on the home screen.
-- **Preloaded Workspace**: Pre-seeded with "Brewline Coffee Co." (fictional artisanal roaster) with 20 brand clauses, 8 verified facts, 10 brand terminology rules, 4 brand assets, and 3 sample drafts with deliberate errors.
+### 1. Demo-First UX & Authentication (S1–S4, T3)
+- **One-Click Demo Logins**: Dedicated buttons for **Creator**, **Manager**, **Reviewer**, and **Admin** — zero registration or signup barrier.
+- **Judge's 60-Second Walkthrough**: Clear 4-step workflow banner on the home screen.
+- **Preloaded Workspace**: Pre-seeded with "Brewline Coffee Co." (fictional artisanal roaster) with 20 brand clauses, 8 verified facts, 10 brand terminology rules, 4 brand assets, and 3 sample drafts with seeded deliberate errors.
 - **Instant Role Switcher**: Top-bar role dropdown allows switching between Creator, Manager, Reviewer, and Admin without re-logging.
 
 ### 2. Brand Kit Management (T4)
@@ -76,3 +76,28 @@ GrievanceAI is an autonomous brand-governance and content compliance platform en
 - **Responsive Layout**: Validated across desktop and mobile screens down to 375px.
 - **Render Cold-Start Screen**: Inline pre-loader informs users on free-tier Render spin-ups (~30s).
 - **Automated Smoke Test**: `npm run smoke` runs all 3 sample drafts through full review and validates findings.
+
+### 10. Second-Pass AI Verification (T14)
+- Batched verification call assessing whether cited sources truly substantiate flagged issues.
+- Displays prominent **"Verified against <ID>"** badge with green check icon.
+- Automatically downgrades unsupported citations to `unverified` and strips invalid source references.
+
+### 11. Resilience & Review Result Caching (T15)
+- **Deterministic SHA-256 Caching**: Caches reviews by `sha256(content + intent + workspace.version)`.
+- **Precomputed Sample Reviews**: All 3 seeded drafts are pre-evaluated at seed time for instant, zero-latency opening.
+- **Concurrency Limiter**: Global queue prevents free-tier RPM and concurrency limits from being exceeded.
+- **Exponential Backoff**: Two-stage backoff (1s, 2s) with candidate fallback models.
+
+### 12. Compliance Report Export (T16)
+- **Print-Friendly HTML Report**: Formatted for browser printing or saving as PDF, complete with audit trail, diff boxes, and comments.
+- **Markdown Export**: Downloadable `.md` export containing the complete compliance record.
+
+### 13. Usability & Accessibility (T17)
+- **"Start here" Onboarding Card**: 4 concise, one-line steps guiding judges.
+- **Inline Hint Strips**: Contextual tips across Drafts, Review, and Brand Kit screens.
+- **Keyboard Shortcuts**: <kbd>A</kbd> to accept fix, <kbd>R</kbd> to reject, <kbd>&uarr;</kbd> <kbd>&darr;</kbd> / <kbd>&larr;</kbd> <kbd>&rarr;</kbd> to navigate findings.
+
+### 14. Demo Safety & Isolation (T18)
+- **Admin "Reset Demo Data" Button**: Restores entire workspace to factory seed state in one click.
+- **6-Hour Auto-Reset Scheduler**: Background timer guarantees that a fresh experience is preserved for incoming judges.
+- **Shared Workspace Notice**: Subtle top banner informing users of the periodic reset policy.

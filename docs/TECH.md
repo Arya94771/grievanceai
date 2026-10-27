@@ -18,6 +18,8 @@ GrievanceAI is architected as a monolithic web service deploying as a single Ren
                  |           Express.js Server             |
                  |  - Security & JWT Auth Middleware       |
                  |  - Rate Limiter (15 RPM free tier)      |
+                 |  - Review Result Cache (SHA-256)        |
+                 |  - 6-Hour Auto-Reset Background Job     |
                  |  - Static Client Server (/client/dist)  |
                  +-----+--------------------+--------------+
                        |                    |
@@ -27,9 +29,10 @@ GrievanceAI is architected as a monolithic web service deploying as a single Ren
         |   MongoDB Atlas   |      | Google Gemini API             |
         | - Users           |      | - Model: gemini-3.5-flash-lite|
         | - Workspaces      |      | - Structured JSON Output      |
-        | - Clauses & Facts |      | - 1M Context Window           |
-        | - Drafts & Revisions     +-------------------------------+
-        | - Findings & Logs |
+        | - Clauses & Facts |      | - Second-Pass Verification    |
+        | - Drafts & Revisions     | - Concurrency Limiter & Retry |
+        | - Findings & Logs |      +-------------------------------+
+        | - ReviewCache     |
         +-------------------+
 ```
 
@@ -51,7 +54,7 @@ GrievanceAI is architected as a monolithic web service deploying as a single Ren
 
 ---
 
-## 3. Data Handling & Security Pipeline
+## 3. Data Handling, Security & AI Pipeline
 
 ### PII Redaction
 Before any draft text or prompt is dispatched across the network to Google AI Studio:
@@ -67,11 +70,21 @@ Before any draft text or prompt is dispatched across the network to Google AI St
   - 1,500 Requests Per Day (RPD)
 - **Rate-Limiting Defense**: The `/api/drafts/:id/review` endpoint is clamped to 15 RPM using `express-rate-limit`.
 
-### Server-Side Verifier (Mandatory Architecture Rule)
-Model hallucination is systematically prevented by enforcing a server-side validation stage after Gemini outputs its JSON payload:
-1. **Verbatim Quote Match**: The server searches the original draft for the exact substring. If not found verbatim (even after whitespace normalization), the finding is discarded.
-2. **Deterministic Offset Computation**: Character indexes (`start` and `end`) are computed strictly by the server. Model-generated offsets are never trusted.
-3. **Source ID Cross-Verification**: The server checks that the cited `sourceId` exists in the brand kit (in `Clause`, `Fact`, or `Term`). If invalid, the source is cleared and the confidence is marked as `unverified`.
+### Two-Stage Verification Pipeline
+1. **Server-Side Verifier (Stage 1 — Mandatory Guardrail)**:
+   - **Verbatim Quote Match**: The server searches the original draft for the exact substring. If not found verbatim (even after whitespace normalization), the finding is discarded.
+   - **Deterministic Offset Computation**: Character indexes (`start` and `end`) are computed strictly by the server. Model-generated offsets are never trusted.
+   - **Source ID Cross-Verification**: The server checks that the cited `sourceId` exists in the brand kit (in `Clause`, `Fact`, or `Term`). If invalid, the source is cleared and confidence is marked as `unverified`.
+2. **Second-Pass AI Verification (Stage 2 — T14)**:
+   - Evaluates claims and clear-confidence findings in a batched call asking whether the cited source truly substantiates the flagged violation.
+   - If substantiated: assigned `"Verified against <ID>"`.
+   - If not: downgraded to `unverified` and source is stripped.
+
+### Resilience & Review Caching (T15)
+- **Hash Composition**: Reviews are indexed by `sha256(content + intent + workspace.version)`.
+- **Cache Hit**: Instantaneous return of findings with `"Cached review result"`.
+- **Cache Invalidation**: Automatically triggered whenever a brand clause, fact, term, or asset is modified (which increments `workspace.version`).
+- **Concurrency Limiter**: Global semaphore ensures only one live Gemini call executes at any single instant, eliminating free-tier concurrency collisions.
 
 ---
 
@@ -89,3 +102,4 @@ Model hallucination is systematically prevented by enforcing a server-side valid
 - `comments`: Discussion threads per draft or attached to specific findings.
 - `auditlogs`: Immutable chronological log of all governance events and override justifications.
 - `aiuselogs`: Complete transparency log of prompts sent, models used, and redactions applied.
+- `reviewcaches`: Precomputed and cached review evaluations keyed by content + version hash.
