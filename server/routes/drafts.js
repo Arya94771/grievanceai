@@ -11,10 +11,11 @@ const {
   Term,
   Comment,
   AuditLog,
-  Workspace
+  Workspace,
+  ReviewCache
 } = require('../models');
 const { authMiddleware, requireRole } = require('../middleware/auth');
-const { runFullReview } = require('../services/aiReview');
+const { runFullReview, computeReviewHash } = require('../services/aiReview');
 const { extractTextFromFile } = require('../services/extractor');
 
 // Configure multer for memory storage (max 10MB)
@@ -161,12 +162,58 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// RUN REVIEW (Exact Checks + AI Review Engine)
+// RUN REVIEW (Exact Checks + AI Review Engine + Caching T15)
 router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
   try {
     const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
     if (!draft) return res.status(404).json({ error: 'Draft not found' });
 
+    const workspace = await Workspace.findById(req.user.workspaceId);
+    const workspaceVersion = workspace ? workspace.version : 1;
+    const forceLive = req.query.forceLive === 'true';
+
+    const cacheKey = computeReviewHash(draft.content, draft.intent, workspaceVersion);
+
+    // Check cache unless forceLive requested
+    if (!forceLive) {
+      const cached = await ReviewCache.findOne({ cacheKey });
+      if (cached && Array.isArray(cached.findings) && cached.findings.length > 0) {
+        // Clear previous open findings and restore cached findings
+        await Finding.deleteMany({ draftId: draft._id, status: 'open' });
+
+        const restoredFindings = cached.findings.map(f => ({
+          draftId: draft._id,
+          revisionId: draft.currentRevisionId,
+          quote: f.quote,
+          start: f.start,
+          end: f.end,
+          category: f.category,
+          severity: f.severity,
+          confidence: f.confidence,
+          sourceType: f.sourceType,
+          sourceId: f.sourceId,
+          sourceText: f.sourceText,
+          reason: f.reason,
+          suggestion: f.suggestion,
+          status: 'open',
+          createdAt: new Date()
+        }));
+
+        const savedFindings = await Finding.insertMany(restoredFindings);
+
+        return res.json({
+          message: 'Review completed from cache',
+          aiUsed: cached.aiUsed,
+          cached: true,
+          note: cached.isPrecomputedSample
+            ? 'Sample review (cached). Click Re-run for a live review.'
+            : 'Cached review result. Click Re-run for a live review.',
+          findings: savedFindings
+        });
+      }
+    }
+
+    // Fetch workspace brand kit
     const [clauses, facts, terms] = await Promise.all([
       Clause.find({ workspaceId: req.user.workspaceId }),
       Fact.find({ workspaceId: req.user.workspaceId }),
@@ -206,6 +253,21 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
 
     const savedFindings = await Finding.insertMany(findingsToInsert);
 
+    // Store in ReviewCache
+    await ReviewCache.findOneAndUpdate(
+      { cacheKey },
+      {
+        cacheKey,
+        workspaceId: req.user.workspaceId,
+        draftId: draft._id,
+        findings: reviewResult.findings,
+        aiUsed: reviewResult.aiUsed,
+        isPrecomputedSample: false,
+        createdAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
     await AuditLog.create({
       workspaceId: req.user.workspaceId,
       draftId: draft._id,
@@ -215,6 +277,7 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
       details: {
         totalFindings: savedFindings.length,
         aiUsed: reviewResult.aiUsed,
+        forceLive,
         note: reviewResult.note
       }
     });
@@ -222,6 +285,7 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
     res.json({
       message: 'Review completed successfully',
       aiUsed: reviewResult.aiUsed,
+      cached: false,
       note: reviewResult.note,
       findings: savedFindings
     });

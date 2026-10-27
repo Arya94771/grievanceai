@@ -1,6 +1,43 @@
+const crypto = require('crypto');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { AiUseLog } = require('../models');
 const { runExactChecks } = require('./exactChecks');
+
+/**
+ * Concurrency limiter to prevent free-tier 429 rate limit tripping
+ */
+let activeAiCalls = 0;
+const aiCallQueue = [];
+
+function acquireAiLock() {
+  return new Promise((resolve) => {
+    if (activeAiCalls < 1) {
+      activeAiCalls++;
+      resolve();
+    } else {
+      aiCallQueue.push(resolve);
+    }
+  });
+}
+
+function releaseAiLock() {
+  activeAiCalls--;
+  if (aiCallQueue.length > 0) {
+    const next = aiCallQueue.shift();
+    activeAiCalls++;
+    next();
+  }
+}
+
+/**
+ * Computes deterministic hash of draft content + intent + brand kit version
+ */
+function computeReviewHash(content, intent = '', brandKitVersion = 1) {
+  return crypto
+    .createHash('sha256')
+    .update(`${(content || '').trim()}::${(intent || '').trim()}::${brandKitVersion}`)
+    .digest('hex');
+}
 
 /**
  * Redacts personal identifiers (emails and phone numbers) from text
@@ -234,6 +271,7 @@ AUDIT RULES:
     for (const candidate of candidateModels) {
       if (callSucceeded) break;
       for (let attempt = 0; attempt < 2; attempt++) {
+        await acquireAiLock();
         try {
           const model = genAI.getGenerativeModel({
             model: candidate,
@@ -252,11 +290,14 @@ AUDIT RULES:
           aiRawFindings = JSON.parse(responseText);
           callSucceeded = true;
           activeModelUsed = candidate;
+          releaseAiLock();
           break;
         } catch (err) {
+          releaseAiLock();
           lastError = err;
-          // Wait briefly before retrying on 503/429
-          await new Promise(r => setTimeout(r, 1000));
+          // Exponential backoff: 1000ms, then 2000ms
+          const backoffDelay = (attempt + 1) * 1000;
+          await new Promise(r => setTimeout(r, backoffDelay));
         }
       }
     }
@@ -350,5 +391,6 @@ module.exports = {
   redactPII,
   verifyAndLocateQuote,
   mergeAndDeduplicate,
+  computeReviewHash,
   runFullReview
 };

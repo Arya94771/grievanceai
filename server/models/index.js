@@ -10,6 +10,7 @@ const Finding = require('./Finding');
 const Comment = require('./Comment');
 const AuditLog = require('./AuditLog');
 const AiUseLog = require('./AiUseLog');
+const ReviewCache = require('./ReviewCache');
 
 module.exports = {
   User,
@@ -23,5 +24,6 @@ module.exports = {
   Finding,
   Comment,
   AuditLog,
-  AiUseLog
+  AiUseLog,
+  ReviewCache
 };

@@ -19,7 +19,8 @@ const {
   Finding,
   Comment,
   AuditLog,
-  AiUseLog
+  AiUseLog,
+  ReviewCache
 } = require('../models');
 
 const {
@@ -30,6 +31,8 @@ const {
   demoUsers,
   sampleDrafts
 } = require('./seedData');
+const { computeReviewHash } = require('../services/aiReview');
+const { runExactChecks } = require('../services/exactChecks');
 
 async function seedBrewlineWorkspace({ forceReset = false } = {}) {
   console.log('[Seeder] Starting idempotent seed for Brewline Coffee Co...');
@@ -160,6 +163,252 @@ async function seedBrewlineWorkspace({ forceReset = false } = {}) {
 
       draft.currentRevisionId = revision._id;
       await draft.save();
+
+      // Precompute sample review findings (T15)
+      let sampleFindings = [];
+      if (sd.title.includes('Monsoon Roast')) {
+        sampleFindings = [
+          {
+            quote: 'voted the best coffee in India by every real connoisseur',
+            category: 'claims',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'clause',
+            sourceId: 'G-15',
+            sourceText: 'Clause G-15: Never publish unsupported absolute superlatives such as "best coffee in India".',
+            reason: 'Publishes an unsupported superlative without national certification.',
+            suggestion: 'crafted with exceptional care by our farming partners'
+          },
+          {
+            quote: 'mud',
+            category: 'terminology',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'term',
+            sourceId: 'TERM-BANNED',
+            sourceText: 'Banned: "mud" → Preferred: "specialty coffee"',
+            reason: 'Uses casual derogatory coffee slang.',
+            suggestion: 'specialty coffee'
+          },
+          {
+            quote: 'cheap',
+            category: 'terminology',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'term',
+            sourceId: 'TERM-BANNED',
+            sourceText: 'Banned: "cheap" → Preferred: "accessible luxury"',
+            reason: 'Dilutes brand craft premium.',
+            suggestion: 'accessible luxury'
+          },
+          {
+            quote: 'java',
+            category: 'terminology',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'term',
+            sourceId: 'TERM-BANNED',
+            sourceText: 'Banned: "java" → Preferred: "specialty coffee"',
+            reason: 'Colloquial slang prohibited in collateral.',
+            suggestion: 'specialty coffee'
+          },
+          {
+            quote: '₹199 per 250g bag',
+            category: 'claims',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'fact',
+            sourceId: 'F-02',
+            sourceText: 'Fact F-02: Retail price of 250g Monsoon Malabar Reserve roast is ₹499.',
+            reason: 'Retail price contradicts approved master price (₹499).',
+            suggestion: '₹499 per 250g bag'
+          },
+          {
+            quote: "You'd have to be stupid not to order right now before our inventory vanishes!",
+            category: 'tone',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'clause',
+            sourceId: 'G-01',
+            sourceText: 'Clause G-01: Prohibits aggressive sales pressure, insults, and urgency baiting.',
+            reason: 'Condescending urgency insult violates artisanal respectful voice.',
+            suggestion: 'We invite you to experience this limited seasonal release.'
+          },
+          {
+            quote: 'Click here',
+            category: 'accessibility',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'rule',
+            sourceId: 'RULE-LINK-TEXT',
+            sourceText: 'WCAG 2.4.4 & G-11: Ambiguous link anchor text.',
+            reason: 'Non-descriptive trigger phrase violates screen-reader navigation.',
+            suggestion: 'Explore the collection'
+          }
+        ];
+      } else if (sd.title.includes('Tasting Weekend')) {
+        sampleFindings = [
+          {
+            quote: 'DO NOT MISS THIS EXCLUSIVE OPPORTUNITY',
+            category: 'accessibility',
+            severity: 'medium',
+            confidence: 'clear',
+            sourceType: 'rule',
+            sourceId: 'RULE-ALLCAPS',
+            sourceText: 'Clause G-13: Avoid entire headlines in ALL CAPS.',
+            reason: 'ALL-CAPS shouting impairs assistive screen readers.',
+            suggestion: 'Do Not Miss This Exclusive Opportunity'
+          },
+          {
+            quote: '!!!',
+            category: 'tone',
+            severity: 'medium',
+            confidence: 'clear',
+            sourceType: 'rule',
+            sourceId: 'RULE-EXCLAMATION',
+            sourceText: 'Clause G-01: Prohibits urgency punctuation.',
+            reason: 'Excessive punctuation creates false panic.',
+            suggestion: '.'
+          },
+          {
+            quote: 'October 1st',
+            category: 'claims',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'fact',
+            sourceId: 'F-04',
+            sourceText: 'Fact F-04: Estate tours run exclusively from November 15 to February 28.',
+            reason: 'Date contradicts official harvest tourism schedule.',
+            suggestion: 'November 15th'
+          },
+          {
+            quote: '[Image: Photo of estate sun deck]',
+            category: 'accessibility',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'rule',
+            sourceId: 'RULE-IMAGE-ALT',
+            sourceText: 'Clause G-12: Must provide descriptive alt text.',
+            reason: 'Missing detailed scene and lighting description.',
+            suggestion: '[Image: Sun-drenched timber tasting deck overlooking Arabica hills]'
+          },
+          {
+            quote: 'click here',
+            category: 'accessibility',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'rule',
+            sourceId: 'RULE-LINK-TEXT',
+            sourceText: 'WCAG 2.4.4: Descriptive link text.',
+            reason: 'Ambiguous call to action.',
+            suggestion: 'explore the collection'
+          }
+        ];
+      } else if (sd.title.includes('Cold Brew')) {
+        sampleFindings = [
+          {
+            quote: 'junk coffee',
+            category: 'terminology',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'term',
+            sourceId: 'TERM-BANNED',
+            sourceText: 'Banned: "junk coffee" → Preferred: "commercial coffee"',
+            reason: 'Derogatory competitor reference.',
+            suggestion: 'commercial coffee'
+          },
+          {
+            quote: '450mg of pure organic caffeine per can',
+            category: 'claims',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'fact',
+            sourceId: 'F-05',
+            sourceText: 'Fact F-05: Nitro Cold Brew cans contain exactly 180mg of naturally extracted caffeine.',
+            reason: 'Caffeine concentration contradicts certified specification (180mg).',
+            suggestion: '180mg of naturally extracted caffeine per can'
+          },
+          {
+            quote: 'cures morning fatigue permanently and guarantees 100% focus all day long',
+            category: 'claims',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'clause',
+            sourceId: 'G-17',
+            sourceText: 'Clause G-17: Never claim medical, pharmacological, or permanent health cures.',
+            reason: 'Prohibited medical cure claim.',
+            suggestion: 'supports natural alertness and daily morning focus'
+          },
+          {
+            quote: 'plantation beans',
+            category: 'terminology',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'term',
+            sourceId: 'TERM-BANNED',
+            sourceText: 'Banned: "plantation beans" → Preferred: "Coorg Estate Reserve"',
+            reason: 'Respect regional estate naming standard.',
+            suggestion: 'Coorg Estate Reserve'
+          },
+          {
+            quote: 'bargain',
+            category: 'terminology',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'term',
+            sourceId: 'TERM-BANNED',
+            sourceText: 'Banned: "bargain" → Preferred: "accessible luxury"',
+            reason: 'Dilutes craft identity.',
+            suggestion: 'accessible luxury'
+          },
+          {
+            quote: 'Tap here',
+            category: 'accessibility',
+            severity: 'high',
+            confidence: 'clear',
+            sourceType: 'rule',
+            sourceId: 'RULE-LINK-TEXT',
+            sourceText: 'WCAG 2.4.4: Descriptive link text.',
+            reason: 'Ambiguous call to action.',
+            suggestion: 'explore the collection'
+          }
+        ];
+      }
+
+      // Compute exact character offsets on draft text
+      const populatedFindings = sampleFindings.map(f => {
+        const start = draft.content.indexOf(f.quote);
+        const end = start !== -1 ? start + f.quote.length : 0;
+        return {
+          draftId: draft._id,
+          revisionId: revision._id,
+          ...f,
+          start: Math.max(0, start),
+          end: Math.max(0, end),
+          status: 'open',
+          createdAt: new Date()
+        };
+      });
+
+      if (populatedFindings.length > 0) {
+        await Finding.insertMany(populatedFindings);
+
+        // Store precomputed cache entry (T15)
+        const cacheKey = computeReviewHash(draft.content, draft.intent, workspace.version || 1);
+        await ReviewCache.findOneAndUpdate(
+          { cacheKey },
+          {
+            cacheKey,
+            workspaceId,
+            draftId: draft._id,
+            findings: populatedFindings,
+            aiUsed: true,
+            isPrecomputedSample: true,
+            createdAt: new Date()
+          },
+          { upsert: true, new: true }
+        );
+      }
 
       // Log creation
       await AuditLog.create({
