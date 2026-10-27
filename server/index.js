@@ -1,3 +1,10 @@
+const dns = require('dns');
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {
+  // Ignore in environments where setting DNS servers is restricted
+}
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -12,6 +19,9 @@ if (fs.existsSync(envPath)) {
 } else {
   dotenv.config();
 }
+
+const authRoutes = require('./routes/auth');
+const { seedBrewlineWorkspace } = require('./seed/seeder');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +41,9 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime()
   });
 });
+
+// Auth Routes
+app.use('/api/auth', authRoutes);
 
 // Serve client in production
 const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
@@ -63,6 +76,11 @@ async function startServer() {
     try {
       await mongoose.connect(process.env.MONGODB_URI);
       console.log('Connected to MongoDB Atlas');
+
+      // Idempotent initial seed check
+      seedBrewlineWorkspace().catch(err => {
+        console.error('Initial auto-seed check encountered error:', err.message);
+      });
     } catch (err) {
       console.error('MongoDB connection error:', err.message);
     }
