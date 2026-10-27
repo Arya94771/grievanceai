@@ -3,7 +3,8 @@ import {
   Sparkles, Check, X, MessageSquare, AlertCircle, Shield, 
   RotateCcw, ArrowRight, Filter, ChevronRight, Eye, Edit3, 
   FileText, ExternalLink, CornerDownRight, CheckCircle2,
-  Send, AlertTriangle, ShieldAlert, CheckSquare, MessageCircle
+  Send, AlertTriangle, ShieldAlert, CheckSquare, MessageCircle,
+  Download
 } from 'lucide-react';
 
 import DraftHistoryView from './DraftHistoryView';
@@ -376,6 +377,28 @@ export default function ReviewView({ draftId, token, user, onBack }) {
 
         {/* Action Controls for Workflow */}
         <div className="review-actions">
+          {/* T16 Download Report Buttons */}
+          <div className="export-btn-group">
+            <button 
+              className="btn btn-outline"
+              onClick={() => {
+                window.open(`/api/drafts/${draft._id}/export?format=html&token=${token}`, '_blank');
+              }}
+              title="Open standalone print-friendly HTML report & PDF export"
+            >
+              <Download size={15} /> Download Report
+            </button>
+            <button 
+              className="btn btn-outline btn-md-export"
+              onClick={() => {
+                window.location.href = `/api/drafts/${draft._id}/export?format=markdown&token=${token}`;
+              }}
+              title="Download Markdown Report (.md)"
+            >
+              .MD
+            </button>
+          </div>
+
           <button 
             className="btn btn-outline"
             onClick={() => setIsEditing(!isEditing)}

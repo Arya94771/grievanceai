@@ -1439,3 +1439,23 @@ kbd {
   padding: 2px 5px;
   white-space: nowrap;
 }
+
+/* ==================== T16 REPORT EXPORT BUTTONS ==================== */
+.export-btn-group {
+  display: flex;
+}
+
+.export-btn-group .btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.btn-md-export {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+  font-size: 0.75rem;
+  padding: 8px 10px;
+  font-weight: 700;
+  color: var(--primary);
+}

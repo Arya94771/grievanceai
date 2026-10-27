@@ -17,6 +17,7 @@ const {
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { runFullReview, computeReviewHash } = require('../services/aiReview');
 const { extractTextFromFile } = require('../services/extractor');
+const { generateMarkdownReport, generateHtmlReport } = require('../services/reportGenerator');
 
 // Configure multer for memory storage (max 10MB)
 const upload = multer({
@@ -578,6 +579,48 @@ router.put('/:id', authMiddleware, async (req, res) => {
     res.json(draft);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update draft', details: err.message });
+  }
+});
+
+// T16: DOWNLOAD REPORT (Markdown and Print-friendly HTML)
+router.get('/:id/export', authMiddleware, async (req, res) => {
+  try {
+    const { format = 'html' } = req.query;
+    const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
+    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+
+    const [revisions, findings, comments, auditLogs, workspace] = await Promise.all([
+      Revision.find({ draftId: draft._id }).sort({ revisionNumber: 1 }),
+      Finding.find({ draftId: draft._id }).sort({ start: 1 }),
+      Comment.find({ draftId: draft._id }).sort({ createdAt: 1 }),
+      AuditLog.find({ draftId: draft._id }).sort({ timestamp: -1 }),
+      Workspace.findById(req.user.workspaceId)
+    ]);
+
+    const reportData = {
+      draft,
+      revisions,
+      findings,
+      comments,
+      auditLogs,
+      workspace
+    };
+
+    const sanitizedTitle = draft.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+    if (format === 'markdown' || format === 'md') {
+      const markdown = generateMarkdownReport(reportData);
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="governance-report-${sanitizedTitle}.md"`);
+      return res.send(markdown);
+    }
+
+    // Default: Print-friendly HTML
+    const html = generateHtmlReport(reportData);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate export report', details: err.message });
   }
 });
 
