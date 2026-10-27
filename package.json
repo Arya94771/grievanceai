@@ -5,10 +5,10 @@
   "description": "GrievanceAI - Autonomous Brand-Governance Platform",
   "scripts": {
     "install:server": "npm install --prefix server",
-    "install:client": "npm install --prefix client",
+    "install:client": "npm install --prefix client --include=dev",
     "install:all": "npm run install:server && npm run install:client",
-    "build:client": "npm run build --prefix client",
-    "build": "npm run install:all && npm run build:client",
+    "build:client": "npm run install:client && npm run build --prefix client",
+    "build": "npm run install:server && npm run build:client",
     "start": "node server/index.js",
     "server": "node server/index.js",
     "client": "npm run dev --prefix client",
