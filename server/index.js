@@ -85,6 +85,15 @@ async function startServer() {
       seedBrewlineWorkspace().catch(err => {
         console.error('Initial auto-seed check encountered error:', err.message);
       });
+
+      // Auto-reset demo workspace every 6 hours (T18)
+      const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+      setInterval(() => {
+        console.log('[Auto-Reset] 6-hour periodic reset triggering for demo workspace...');
+        seedBrewlineWorkspace({ forceReset: true }).catch(err => {
+          console.error('[Auto-Reset Error]:', err.message);
+        });
+      }, SIX_HOURS_MS);
     } catch (err) {
       console.error('MongoDB connection error:', err.message);
     }

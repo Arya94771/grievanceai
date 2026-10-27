@@ -1308,3 +1308,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
     max-height: 95vh;
   }
 }
+
+/* ==================== T18 DEMO SAFETY BANNER ==================== */
+.demo-reset-strip {
+  background: #F1F5F9;
+  border-bottom: 1px solid var(--border);
+  padding: 6px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.demo-reset-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

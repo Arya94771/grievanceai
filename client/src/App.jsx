@@ -117,6 +117,39 @@ export default function App() {
         </div>
       </header>
 
+      {/* Shared Demo Workspace Banner & Admin Reset Button (T18) */}
+      <div className="demo-reset-strip">
+        <div className="demo-reset-info">
+          <RotateCcw size={14} className="text-muted" />
+          <span>Shared demo workspace: changes reset periodically</span>
+        </div>
+        {user.role === 'admin' && (
+          <button 
+            className="btn btn-sm btn-outline text-danger"
+            onClick={async () => {
+              if (window.confirm('Reset the entire Brewline Coffee Co. workspace back to factory seed state?')) {
+                try {
+                  const res = await fetch('/api/brand-kit/reset-demo', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` }
+                  });
+                  if (res.ok) {
+                    alert('Demo workspace reset successfully.');
+                    window.location.reload();
+                  } else {
+                    alert('Reset failed.');
+                  }
+                } catch (e) {
+                  alert('Reset error: ' + e.message);
+                }
+              }
+            }}
+          >
+            <RotateCcw size={12} /> Reset Demo Data
+          </button>
+        )}
+      </div>
+
       {/* Main Screen Content */}
       <main className="main-content">
         {selectedDraftId ? (

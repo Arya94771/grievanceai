@@ -9,6 +9,7 @@ const {
   AuditLog
 } = require('../models');
 const { authMiddleware, requireRole } = require('../middleware/auth');
+const { seedBrewlineWorkspace } = require('../seed/seeder');
 
 // Helper to bump workspace version on brand kit updates (for caching invalidation in T15)
 async function bumpWorkspaceVersion(workspaceId) {
@@ -345,6 +346,29 @@ router.delete('/assets/:id', authMiddleware, requireRole('admin'), async (req, r
     res.json({ message: 'Asset deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete asset', details: err.message });
+  }
+});
+
+// RESET DEMO DATA (Admin Only - T18)
+router.post('/reset-demo', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    console.log(`[Demo Reset] Admin ${req.user.name} initiated workspace reset.`);
+    await seedBrewlineWorkspace({ forceReset: true });
+
+    await AuditLog.create({
+      workspaceId: req.user.workspaceId,
+      action: 'reset_demo_workspace',
+      actor: req.user.name,
+      actorRole: req.user.role,
+      details: { timestamp: new Date() }
+    });
+
+    res.json({
+      message: 'Demo workspace data has been restored to factory seed state.',
+      resetAt: new Date()
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset demo data', details: err.message });
   }
 });
 
