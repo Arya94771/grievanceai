@@ -6,7 +6,10 @@ import {
   Send, AlertTriangle, ShieldAlert, CheckSquare, MessageCircle
 } from 'lucide-react';
 
+import DraftHistoryView from './DraftHistoryView';
+
 export default function ReviewView({ draftId, token, user, onBack }) {
+  const [activeMainTab, setActiveMainTab] = useState('review'); // 'review' | 'history'
   const [draft, setDraft] = useState(null);
   const [revisions, setRevisions] = useState([]);
   const [findings, setFindings] = useState([]);
@@ -394,8 +397,31 @@ export default function ReviewView({ draftId, token, user, onBack }) {
         </div>
       )}
 
-      {/* Main Review Grid */}
-      <div className="review-main-grid">
+      {/* Review / History View Navigation Tabs (T10) */}
+      <div className="tabs-nav mb-4">
+        <button 
+          className={`tab-btn ${activeMainTab === 'review' ? 'active' : ''}`}
+          onClick={() => setActiveMainTab('review')}
+        >
+          <Sparkles size={16} /> Compliance Review Workspace
+        </button>
+        <button 
+          className={`tab-btn ${activeMainTab === 'history' ? 'active' : ''}`}
+          onClick={() => setActiveMainTab('history')}
+        >
+          <RotateCcw size={16} /> Revisions ({revisions.length}) &amp; Audit Trail ({auditLogs.length})
+        </button>
+      </div>
+
+      {activeMainTab === 'history' ? (
+        <DraftHistoryView
+          draft={draft}
+          revisions={revisions}
+          auditLogs={auditLogs}
+        />
+      ) : (
+        /* Main Review Grid */
+        <div className="review-main-grid">
         {/* LEFT COLUMN: Draft Text / Editor */}
         <div className="draft-content-panel card">
           <div className="panel-header">
@@ -629,6 +655,7 @@ export default function ReviewView({ draftId, token, user, onBack }) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Decision Modal (Reject / Dispute) */}
       {decisionModal.show && (
