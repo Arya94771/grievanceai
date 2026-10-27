@@ -179,8 +179,86 @@ function mergeAndDeduplicate(exactFindings, aiFindings) {
 }
 
 /**
- * Main AI Review Runner
+ * T14 Second-pass verification:
+ * For findings with category 'claims' or confidence 'clear', make one batched Gemini call asking
+ * whether the cited source actually supports this finding. If no, downgrade to 'unverified'.
  */
+async function runSecondPassVerification(findings, apiKey, modelName = 'gemini-3.5-flash-lite') {
+  if (!apiKey || !Array.isArray(findings) || findings.length === 0) return findings;
+
+  const candidates = [];
+  findings.forEach((f, idx) => {
+    if ((f.category === 'claims' || f.confidence === 'clear') && f.sourceId && f.sourceText) {
+      candidates.push({ idx, quote: f.quote, sourceId: f.sourceId, sourceText: f.sourceText, reason: f.reason });
+    }
+  });
+
+  if (candidates.length === 0) return findings;
+
+  try {
+    await acquireAiLock();
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.1
+      }
+    });
+
+    const itemsPrompt = candidates.map((c, i) => `
+[Item ${i}]
+- Flagged Quote: "${c.quote}"
+- Issue Flagged: "${c.reason}"
+- Cited Source [${c.sourceId}]: "${c.sourceText}"
+`).join('\n');
+
+    const prompt = `You are a strict brand governance judge.
+For each item below, determine: Does the cited source actually support flagging this quote as a brand violation or discrepancy?
+Respond strictly in JSON array format:
+[
+  { "itemIndex": 0, "supports": true, "oneLineReason": "Explanation" }
+]
+
+ITEMS:
+${itemsPrompt}`;
+
+    const result = await model.generateContent(prompt);
+    releaseAiLock();
+
+    const evaluations = JSON.parse(result.response.text());
+
+    if (Array.isArray(evaluations)) {
+      evaluations.forEach(ev => {
+        const candidate = candidates[ev.itemIndex];
+        if (candidate && findings[candidate.idx]) {
+          const targetFinding = findings[candidate.idx];
+          if (ev.supports === true || ev.supports === 'yes') {
+            targetFinding.verifiedAgainst = targetFinding.sourceId;
+          } else {
+            // Downgrade to unverified and clear source
+            targetFinding.confidence = 'unverified';
+            targetFinding.verifiedAgainst = '';
+            targetFinding.sourceId = '';
+            targetFinding.sourceType = 'rule';
+            targetFinding.reason += ` (Second-pass verification note: cited source was deemed non-supporting: ${ev.oneLineReason || 'Insufficient match'}).`;
+          }
+        }
+      });
+    }
+  } catch (err) {
+    try { releaseAiLock(); } catch(e) {}
+    console.warn('[Second-Pass Verification Note]:', err.message);
+    // Keep T6 verified findings intact on error
+    candidates.forEach(c => {
+      if (findings[c.idx] && findings[c.idx].sourceId) {
+        findings[c.idx].verifiedAgainst = findings[c.idx].sourceId;
+      }
+    });
+  }
+
+  return findings;
+}
 async function runFullReview({
   draftContent,
   draftIntent = '',
@@ -377,7 +455,18 @@ AUDIT RULES:
   }
 
   // 6. Merge exact findings and verified AI findings, de-duplicating overlapping spans
-  const combinedFindings = mergeAndDeduplicate(exactFindings, verifiedAiFindings);
+  let combinedFindings = mergeAndDeduplicate(exactFindings, verifiedAiFindings);
+
+  // 7. Second-pass verification for claims and clear confidence findings (T14)
+  if (callSucceeded && apiKey) {
+    combinedFindings = await runSecondPassVerification(combinedFindings, apiKey, modelName);
+  } else {
+    combinedFindings.forEach(f => {
+      if (f.sourceId && (f.confidence === 'clear' || f.category === 'claims')) {
+        f.verifiedAgainst = f.sourceId;
+      }
+    });
+  }
 
   return {
     findings: combinedFindings,

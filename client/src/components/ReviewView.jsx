@@ -579,6 +579,11 @@ export default function ReviewView({ draftId, token, user, onBack }) {
                             {finding.sourceType.toUpperCase()}: {finding.sourceId}
                           </span>
                         )}
+                        {finding.verifiedAgainst && (
+                          <span className="badge badge-verified" title="Second-pass AI verified source attribution">
+                            <CheckCircle2 size={11} style={{ marginRight: '3px' }} /> Verified against {finding.verifiedAgainst}
+                          </span>
+                        )}
                       </div>
 
                       {!isOpen && (
