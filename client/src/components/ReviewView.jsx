@@ -48,6 +48,38 @@ export default function ReviewView({ draftId, token, user, onBack }) {
   const isManagerOrReviewer = user && ['manager', 'reviewer', 'admin'].includes(user.role);
   const isCreator = user && (user.role === 'creator' || user.role === 'admin');
 
+  // T17 Keyboard Shortcuts (A: Accept, R: Reject, Arrows: Navigate)
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+      const openItems = findings.filter(f => f.status === 'open');
+      if (openItems.length === 0) return;
+
+      const currentIndex = openItems.findIndex(f => f._id === activeFindingId);
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const nextIdx = currentIndex === -1 ? 0 : (currentIndex + 1) % openItems.length;
+        setActiveFindingId(openItems[nextIdx]._id);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const prevIdx = currentIndex <= 0 ? openItems.length - 1 : currentIndex - 1;
+        setActiveFindingId(openItems[prevIdx]._id);
+      } else if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        const target = openItems[currentIndex !== -1 ? currentIndex : 0];
+        if (target) handleDecision(target._id, 'accepted');
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        const target = openItems[currentIndex !== -1 ? currentIndex : 0];
+        if (target) setDecisionModal({ show: true, findingId: target._id, type: 'rejected', note: '' });
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [findings, activeFindingId]);
+
   useEffect(() => {
     loadDraftData();
   }, [draftId]);
@@ -317,6 +349,12 @@ export default function ReviewView({ draftId, token, user, onBack }) {
         {reviewNote && (
           <span className="badge badge-category">{reviewNote}</span>
         )}
+      </div>
+
+      {/* Keyboard shortcut hint strip (T17) */}
+      <div className="keyboard-hint-strip">
+        <span className="kbd-label">Pro Tip:</span>
+        <span>Use <kbd>&larr;</kbd> <kbd>&rarr;</kbd> or <kbd>&uarr;</kbd> <kbd>&darr;</kbd> to jump between findings &bull; Press <kbd>A</kbd> to Accept Fix &bull; Press <kbd>R</kbd> to Reject</span>
       </div>
 
       {/* Review Header */}

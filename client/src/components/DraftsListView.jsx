@@ -18,6 +18,7 @@ export default function DraftsListView({ token, user, onSelectDraft }) {
   const [content, setContent] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showStartCard, setShowStartCard] = useState(true);
 
   useEffect(() => {
     fetchDrafts();
@@ -95,7 +96,7 @@ export default function DraftsListView({ token, user, onSelectDraft }) {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Content Drafts & Compliance</h1>
+          <h1 className="page-title">Content Drafts &amp; Compliance</h1>
           <p className="page-subtitle">
             Review and govern draft collateral before publication across marketing and social channels.
           </p>
@@ -106,6 +107,44 @@ export default function DraftsListView({ token, user, onSelectDraft }) {
         >
           <Plus size={16} /> New Draft
         </button>
+      </div>
+
+      {/* T17 "Start here" Card (4 steps, one line each) */}
+      {showStartCard && (
+        <div className="start-here-card">
+          <div className="start-here-header">
+            <div className="start-here-title">
+              <Sparkles size={18} className="text-primary" />
+              <h3>Start here: 4-Step Quick Tour</h3>
+            </div>
+            <button className="icon-btn" onClick={() => setShowStartCard(false)} title="Dismiss">
+              <X size={16} />
+            </button>
+          </div>
+          <div className="start-here-steps">
+            <div className="start-step-item">
+              <span className="step-badge">1</span>
+              <span>Open any of the 3 preloaded <strong>Brewline Coffee Co.</strong> sample drafts below.</span>
+            </div>
+            <div className="start-step-item">
+              <span className="step-badge">2</span>
+              <span>Click <strong>"Run Review"</strong> to verify content against brand clauses, facts &amp; terms.</span>
+            </div>
+            <div className="start-step-item">
+              <span className="step-badge">3</span>
+              <span>Click <strong>"Accept Fix"</strong> on a suggestion to create a new numbered revision.</span>
+            </div>
+            <div className="start-step-item">
+              <span className="step-badge">4</span>
+              <span>Submit for review &amp; switch role to <strong>Manager</strong> to approve or request changes.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inline hint strip */}
+      <div className="inline-hint-strip">
+        <span>💡 <strong>Tip:</strong> You can paste text or upload documents (.txt, .docx, .pdf) when creating new drafts. Text is extracted automatically on the server.</span>
       </div>
 
       {loading ? (
