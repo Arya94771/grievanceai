@@ -989,3 +989,116 @@ body {
     gap: 0;
   }
 }
+/* T9 Workflow & Comments */
+.comments-section {
+  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+  background: #F8FAFC;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.comments-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  color: #334155;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.no-comments-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.comment-bubble {
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.comment-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.comment-text {
+  font-size: 0.875rem;
+  color: #1E293B;
+  line-height: 1.4;
+}
+
+.comment-input-form {
+  display: flex;
+  gap: 8px;
+}
+
+.alert-box-danger {
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  color: #991B1B;
+}
+
+.blocked-findings-list {
+  background: #F8FAFC;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.blocked-header {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.blocked-item {
+  font-size: 0.825rem;
+  padding: 6px 0;
+  border-bottom: 1px dashed #E2E8F0;
+  line-height: 1.4;
+}
+
+.blocked-quote {
+  font-weight: 600;
+  color: #DC2626;
+  margin-left: 6px;
+}
+
+.blocked-reason {
+  color: #475569;
+}

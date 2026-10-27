@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, Check, X, MessageSquare, AlertCircle, Shield, 
   RotateCcw, ArrowRight, Filter, ChevronRight, Eye, Edit3, 
-  FileText, ExternalLink, CornerDownRight, CheckCircle2 
+  FileText, ExternalLink, CornerDownRight, CheckCircle2,
+  Send, AlertTriangle, ShieldAlert, CheckSquare, MessageCircle
 } from 'lucide-react';
 
-export default function ReviewView({ draftId, token, user, onBack, onStatusChange }) {
+export default function ReviewView({ draftId, token, user, onBack }) {
   const [draft, setDraft] = useState(null);
   const [revisions, setRevisions] = useState([]);
   const [findings, setFindings] = useState([]);
   const [comments, setComments] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState(null);
@@ -24,9 +26,24 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
   // Modals for Reject / Dispute
   const [decisionModal, setDecisionModal] = useState({ show: false, findingId: null, type: null, note: '' });
 
+  // Approval Workflow Modals (T9)
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [blockedInfo, setBlockedInfo] = useState(null);
+
+  const [showChangesModal, setShowChangesModal] = useState(false);
+  const [changesComment, setChangesComment] = useState('');
+
+  // New Comment box
+  const [newCommentText, setNewCommentText] = useState('');
+
   // Manual Edit State
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
+
+  // Role checks
+  const isManagerOrReviewer = user && ['manager', 'reviewer', 'admin'].includes(user.role);
+  const isCreator = user && (user.role === 'creator' || user.role === 'admin');
 
   useEffect(() => {
     loadDraftData();
@@ -44,6 +61,7 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
       setRevisions(data.revisions || []);
       setFindings(data.findings || []);
       setComments(data.comments || []);
+      setAuditLogs(data.auditLogs || []);
       setEditContent(data.draft.content);
       setError(null);
     } catch (err) {
@@ -98,6 +116,104 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
     }
   }
 
+  // T9: Submit for Review (Creator)
+  async function handleSubmitForReview() {
+    try {
+      const res = await fetch(`/api/drafts/${draftId}/submit`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.error || 'Failed to submit draft');
+
+      alert('Draft successfully submitted for Manager review.');
+      loadDraftData();
+    } catch (err) {
+      alert(`Submission error: ${err.message}`);
+    }
+  }
+
+  // T9: Approve Draft (with check for open clear findings)
+  async function handleApprove(override = null) {
+    try {
+      const res = await fetch(`/api/drafts/${draftId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ overrideReason: override })
+      });
+
+      const resData = await res.json();
+
+      if (!res.ok) {
+        if (resData.error === 'APPROVAL_BLOCKED') {
+          setBlockedInfo(resData);
+          setShowOverrideModal(true);
+          return;
+        }
+        throw new Error(resData.error || resData.message || 'Approval failed');
+      }
+
+      setShowOverrideModal(false);
+      setOverrideReason('');
+      setBlockedInfo(null);
+      alert(resData.message || 'Draft approved successfully.');
+      loadDraftData();
+    } catch (err) {
+      alert(`Approval error: ${err.message}`);
+    }
+  }
+
+  // T9: Request Changes (Manager/Reviewer)
+  async function handleRequestChanges(e) {
+    e.preventDefault();
+    if (!changesComment.trim()) return;
+
+    try {
+      const res = await fetch(`/api/drafts/${draftId}/request-changes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ comment: changesComment.trim() })
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.error || 'Failed to request changes');
+
+      setShowChangesModal(false);
+      setChangesComment('');
+      alert('Changes requested and posted to comment thread.');
+      loadDraftData();
+    } catch (err) {
+      alert(`Request changes error: ${err.message}`);
+    }
+  }
+
+  // Add Comment to Thread
+  async function handlePostComment(e) {
+    e.preventDefault();
+    if (!newCommentText.trim()) return;
+
+    try {
+      const res = await fetch(`/api/drafts/${draftId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: newCommentText.trim() })
+      });
+      if (!res.ok) throw new Error('Failed to post comment');
+      setNewCommentText('');
+      loadDraftData();
+    } catch (err) {
+      alert(`Comment error: ${err.message}`);
+    }
+  }
+
   // Handle Manual Save
   async function handleSaveManualEdit() {
     try {
@@ -137,6 +253,7 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
   });
 
   const openFindingsCount = findings.filter(f => f.status === 'open').length;
+  const openClearCount = findings.filter(f => f.status === 'open' && f.confidence === 'clear').length;
 
   // Render text with interactive spans
   function renderHighlightedText() {
@@ -147,20 +264,17 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
       return <div className="draft-body-text">{text}</div>;
     }
 
-    // Sort spans by start
     const sorted = [...openFindings].sort((a, b) => a.start - b.start);
     const elements = [];
     let lastIndex = 0;
 
     sorted.forEach((finding, idx) => {
-      // Non-highlighted gap
       if (finding.start > lastIndex) {
         elements.push(
           <span key={`text-${idx}`}>{text.substring(lastIndex, finding.start)}</span>
         );
       }
 
-      // Highlighted span
       const isSelected = activeFindingId === finding._id;
       const highlightSpan = text.substring(Math.max(lastIndex, finding.start), finding.end);
 
@@ -219,6 +333,7 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
           </div>
         </div>
 
+        {/* Action Controls for Workflow */}
         <div className="review-actions">
           <button 
             className="btn btn-outline"
@@ -226,14 +341,49 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
           >
             <Edit3 size={15} /> {isEditing ? 'Cancel Edit' : 'Edit Text'}
           </button>
+
           <button 
-            className="btn btn-primary btn-review"
+            className="btn btn-outline btn-review"
             onClick={handleRunReview}
             disabled={reviewing}
           >
             <Sparkles size={16} />
             {reviewing ? 'Auditing Guidelines...' : 'Run Review'}
           </button>
+
+          {/* CREATOR: Submit for Review */}
+          {isCreator && (draft.status === 'draft' || draft.status === 'changes_requested') && (
+            <button 
+              className="btn btn-primary"
+              onClick={handleSubmitForReview}
+            >
+              <Send size={15} /> Submit for Review
+            </button>
+          )}
+
+          {/* MANAGER / REVIEWER: Approve or Request Changes */}
+          {isManagerOrReviewer && draft.status === 'in_review' && (
+            <>
+              <button 
+                className="btn btn-outline text-danger"
+                onClick={() => setShowChangesModal(true)}
+              >
+                <AlertCircle size={15} /> Request Changes
+              </button>
+              <button 
+                className="btn btn-success"
+                onClick={() => handleApprove()}
+              >
+                <CheckSquare size={15} /> Approve
+              </button>
+            </>
+          )}
+
+          {draft.status === 'approved' && (
+            <span className="badge badge-success" style={{ padding: '8px 12px', fontSize: '0.85rem' }}>
+              <CheckCircle2 size={16} /> Approved for Publishing
+            </span>
+          )}
         </div>
       </div>
 
@@ -252,6 +402,7 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
             <h3>Document Content</h3>
             <span className="text-muted text-sm">
               {openFindingsCount} open finding{openFindingsCount === 1 ? '' : 's'}
+              {openClearCount > 0 && ` (${openClearCount} clear violations)`}
             </span>
           </div>
 
@@ -272,6 +423,43 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
             ) : (
               renderHighlightedText()
             )}
+          </div>
+
+          {/* Comments & Discussion Thread */}
+          <div className="comments-section">
+            <div className="comments-header">
+              <MessageCircle size={16} />
+              <h4>Discussion &amp; Review Thread ({comments.length})</h4>
+            </div>
+
+            <div className="comments-list">
+              {comments.length === 0 ? (
+                <p className="no-comments-text">No comments on this draft yet.</p>
+              ) : (
+                comments.map((c) => (
+                  <div key={c._id} className="comment-bubble">
+                    <div className="comment-meta">
+                      <strong>{c.author}</strong> <span className="role-tag">{c.authorRole}</span>
+                      <span className="comment-time">{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <div className="comment-text">{c.text}</div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handlePostComment} className="comment-input-form">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Leave feedback or ask a compliance question..."
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+              />
+              <button type="submit" className="btn btn-primary btn-sm">
+                <Send size={14} /> Send
+              </button>
+            </form>
           </div>
         </div>
 
@@ -349,7 +537,6 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
                     className={`finding-card sev-${finding.severity} ${isSelected ? 'active-card' : ''} ${!isOpen ? 'decided-card' : ''}`}
                     onClick={() => setActiveFindingId(finding._id)}
                   >
-                    {/* Finding Header */}
                     <div className="finding-header">
                       <div className="finding-badges">
                         <span className={`badge badge-severity sev-${finding.severity}`}>
@@ -375,12 +562,10 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
                       )}
                     </div>
 
-                    {/* Flagged Issue / Reason */}
                     <div className="finding-reason">
                       {finding.reason}
                     </div>
 
-                    {/* Source Quote Box */}
                     {finding.sourceText && (
                       <div className="source-citation-box">
                         <div className="source-label">Brand Standard Source:</div>
@@ -388,7 +573,6 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
                       </div>
                     )}
 
-                    {/* Before & After Diff Box */}
                     {finding.suggestion && (
                       <div className="diff-box">
                         <div className="diff-row diff-before">
@@ -402,7 +586,6 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
                       </div>
                     )}
 
-                    {/* Action Buttons for Open Findings */}
                     {isOpen ? (
                       <div className="finding-actions">
                         <button 
@@ -494,6 +677,102 @@ export default function ReviewView({ draftId, token, user, onBack, onStatusChang
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Confirm {decisionModal.type === 'rejected' ? 'Rejection' : 'Dispute'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* T9: Request Changes Modal (Manager / Reviewer) */}
+      {showChangesModal && (
+        <div className="modal-backdrop">
+          <div className="modal-box">
+            <div className="modal-header">
+              <h2><AlertCircle size={20} className="text-danger" /> Request Revisions from Creator</h2>
+              <button className="icon-btn" onClick={() => setShowChangesModal(false)}><X size={20} /></button>
+            </div>
+            <form onSubmit={handleRequestChanges}>
+              <div className="modal-body">
+                <p className="modal-hint">
+                  Specify what changes are needed before this draft can be approved. This comment will be logged in the audit trail and sent back to the creator.
+                </p>
+                <div className="form-group">
+                  <label>Change Request Feedback (Required)</label>
+                  <textarea
+                    rows={4}
+                    className="form-control"
+                    placeholder="e.g. Please replace all unverified price claims and adjust the tone to align with G-01."
+                    value={changesComment}
+                    onChange={(e) => setChangesComment(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline" onClick={() => setShowChangesModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-danger">
+                  Request Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* T9: Approval Blocked & Override Modal */}
+      {showOverrideModal && (
+        <div className="modal-backdrop">
+          <div className="modal-box modal-lg">
+            <div className="modal-header">
+              <h2><ShieldAlert size={22} className="text-danger" /> Approval Blocked: Open Violations</h2>
+              <button className="icon-btn" onClick={() => setShowOverrideModal(false)}><X size={20} /></button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleApprove(overrideReason);
+            }}>
+              <div className="modal-body">
+                <div className="alert-box-danger">
+                  <AlertTriangle size={20} className="text-danger" />
+                  <div>
+                    <strong>Direct approval is blocked by brand governance policy.</strong>
+                    <p>There are {blockedInfo?.openClearCount || openClearCount} unresolved <strong>clear</strong> guideline violations in this draft.</p>
+                  </div>
+                </div>
+
+                <div className="blocked-findings-list">
+                  <div className="blocked-header">Unresolved Brand Violations:</div>
+                  {blockedInfo?.openFindings?.map((f, i) => (
+                    <div key={i} className="blocked-item">
+                      <span className="badge badge-severity sev-high">{f.category}</span>
+                      <span className="blocked-quote">"{f.quote}"</span> &rarr; <span className="blocked-reason">{f.reason}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="form-group mt-4">
+                  <label>
+                    Manager Override Justification <strong>(Mandatory to force approval)</strong>:
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="form-control"
+                    placeholder="Document the legal or commercial rationale for approving this draft despite open brand violations (this will be permanently recorded in the immutable Audit Log)..."
+                    value={overrideReason}
+                    onChange={(e) => setOverrideReason(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline" onClick={() => setShowOverrideModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-danger">
+                  Force Approval with Override
                 </button>
               </div>
             </form>

@@ -12,7 +12,7 @@ const {
   AuditLog,
   Workspace
 } = require('../models');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireRole } = require('../middleware/auth');
 const { runFullReview } = require('../services/aiReview');
 const { extractTextFromFile } = require('../services/extractor');
 
@@ -32,14 +32,18 @@ router.get('/', authMiddleware, async (req, res) => {
     const draftIds = drafts.map(d => d._id);
     const openFindings = await Finding.aggregate([
       { $match: { draftId: { $in: draftIds }, status: 'open' } },
-      { $group: { _id: '$draftId', count: { $sum: 1 } } }
+      { $group: { _id: '$draftId', count: { $sum: 1 }, clearCount: { $sum: { $cond: [{ $eq: ['$confidence', 'clear'] }, 1, 0] } } } }
     ]);
-    const findingsMap = new Map(openFindings.map(f => [String(f._id), f.count]));
+    const findingsMap = new Map(openFindings.map(f => [String(f._id), f]));
 
-    const enrichedDrafts = drafts.map(d => ({
-      ...d.toObject(),
-      openFindingsCount: findingsMap.get(String(d._id)) || 0
-    }));
+    const enrichedDrafts = drafts.map(d => {
+      const stats = findingsMap.get(String(d._id)) || { count: 0, clearCount: 0 };
+      return {
+        ...d.toObject(),
+        openFindingsCount: stats.count,
+        openClearCount: stats.clearCount
+      };
+    });
 
     res.json(enrichedDrafts);
   } catch (err) {
@@ -115,7 +119,7 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
   }
 });
 
-// GET single draft details with current revision and findings
+// GET single draft details with revisions, findings, comments, and audit logs
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
@@ -128,13 +132,16 @@ router.get('/:id', authMiddleware, async (req, res) => {
       AuditLog.find({ draftId: draft._id }).sort({ timestamp: -1 })
     ]);
 
+    const openClearCount = findings.filter(f => f.status === 'open' && f.confidence === 'clear').length;
+
     res.json({
       draft,
       currentRevisionId: draft.currentRevisionId,
       revisions,
       findings,
       comments,
-      auditLogs
+      auditLogs,
+      openClearCount
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load draft details', details: err.message });
@@ -147,14 +154,12 @@ router.post('/:id/review', authMiddleware, async (req, res) => {
     const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
     if (!draft) return res.status(404).json({ error: 'Draft not found' });
 
-    // Fetch workspace brand kit
     const [clauses, facts, terms] = await Promise.all([
       Clause.find({ workspaceId: req.user.workspaceId }),
       Fact.find({ workspaceId: req.user.workspaceId }),
       Term.find({ workspaceId: req.user.workspaceId })
     ]);
 
-    // Run Full Review
     const reviewResult = await runFullReview({
       draftContent: draft.content,
       draftIntent: draft.intent,
@@ -165,10 +170,9 @@ router.post('/:id/review', authMiddleware, async (req, res) => {
       draftId: draft._id
     });
 
-    // Clear previous un-decided open findings for this draft
+    // Clear previous open findings
     await Finding.deleteMany({ draftId: draft._id, status: 'open' });
 
-    // Persist new findings
     const findingsToInsert = reviewResult.findings.map(f => ({
       draftId: draft._id,
       revisionId: draft.currentRevisionId,
@@ -189,7 +193,6 @@ router.post('/:id/review', authMiddleware, async (req, res) => {
 
     const savedFindings = await Finding.insertMany(findingsToInsert);
 
-    // Audit log
     await AuditLog.create({
       workspaceId: req.user.workspaceId,
       draftId: draft._id,
@@ -236,15 +239,12 @@ router.post('/:id/findings/:findingId/decision', authMiddleware, async (req, res
 
     let newRevision = null;
 
-    // IF ACCEPTED: Apply suggestion to draft text and create new Revision
     if (decision === 'accepted' && finding.suggestion) {
       let updatedContent = draft.content;
 
-      // Replace exact substring
       if (updatedContent.includes(finding.quote)) {
         updatedContent = updatedContent.replace(finding.quote, finding.suggestion);
       } else if (finding.start >= 0 && finding.end <= updatedContent.length) {
-        // Fallback to offset replacement
         updatedContent = updatedContent.slice(0, finding.start) + finding.suggestion + updatedContent.slice(finding.end);
       }
 
@@ -263,7 +263,6 @@ router.post('/:id/findings/:findingId/decision', authMiddleware, async (req, res
       draft.updatedAt = new Date();
       await draft.save();
 
-      // Recalculate remaining open findings offsets for this draft
       const remainingFindings = await Finding.find({ draftId: draft._id, status: 'open' });
       for (const rf of remainingFindings) {
         const newStart = updatedContent.indexOf(rf.quote);
@@ -275,7 +274,6 @@ router.post('/:id/findings/:findingId/decision', authMiddleware, async (req, res
       }
     }
 
-    // IF DISPUTED: add comment
     if (decision === 'disputed' && decisionNote) {
       await Comment.create({
         draftId: draft._id,
@@ -286,7 +284,6 @@ router.post('/:id/findings/:findingId/decision', authMiddleware, async (req, res
       });
     }
 
-    // Log in AuditLog
     await AuditLog.create({
       workspaceId: req.user.workspaceId,
       draftId: draft._id,
@@ -310,6 +307,157 @@ router.post('/:id/findings/:findingId/decision', authMiddleware, async (req, res
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to record decision', details: err.message });
+  }
+});
+
+// ==================== T9 APPROVAL WORKFLOW ====================
+
+// 1. SUBMIT FOR REVIEW (Creator action)
+router.post('/:id/submit', authMiddleware, async (req, res) => {
+  try {
+    const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
+    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+
+    draft.status = 'in_review';
+    draft.updatedAt = new Date();
+    await draft.save();
+
+    await AuditLog.create({
+      workspaceId: req.user.workspaceId,
+      draftId: draft._id,
+      action: 'submit_for_review',
+      actor: req.user.name,
+      actorRole: req.user.role,
+      details: { previousStatus: draft.status }
+    });
+
+    res.json({
+      message: 'Draft submitted for manager review.',
+      draft
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to submit draft', details: err.message });
+  }
+});
+
+// 2. APPROVE DRAFT (Manager / Reviewer / Admin action)
+// Blocked if any 'clear' confidence finding is open unless override reason is provided
+router.post('/:id/approve', authMiddleware, requireRole('manager', 'reviewer', 'admin'), async (req, res) => {
+  try {
+    const { overrideReason } = req.body;
+    const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
+    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+
+    // Check for open 'clear' findings
+    const openClearFindings = await Finding.find({
+      draftId: draft._id,
+      status: 'open',
+      confidence: 'clear'
+    });
+
+    if (openClearFindings.length > 0 && (!overrideReason || !overrideReason.trim())) {
+      return res.status(400).json({
+        error: 'APPROVAL_BLOCKED',
+        message: `Approval is blocked: ${openClearFindings.length} clear brand violation(s) remain open. An explicit override reason is required to proceed.`,
+        openClearCount: openClearFindings.length,
+        openFindings: openClearFindings.map(f => ({ quote: f.quote, category: f.category, reason: f.reason }))
+      });
+    }
+
+    const isOverride = openClearFindings.length > 0 && !!overrideReason;
+
+    draft.status = 'approved';
+    draft.updatedAt = new Date();
+    await draft.save();
+
+    await AuditLog.create({
+      workspaceId: req.user.workspaceId,
+      draftId: draft._id,
+      action: isOverride ? 'override_approval' : 'approve_draft',
+      actor: req.user.name,
+      actorRole: req.user.role,
+      details: {
+        isOverride,
+        overrideReason: overrideReason || null,
+        openClearCount: openClearFindings.length,
+        unresolvedQuotes: openClearFindings.map(f => f.quote)
+      }
+    });
+
+    res.json({
+      message: isOverride ? 'Draft approved with documented override.' : 'Draft approved successfully.',
+      draft,
+      isOverride
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to approve draft', details: err.message });
+  }
+});
+
+// 3. REQUEST CHANGES (Manager / Reviewer / Admin action)
+router.post('/:id/request-changes', authMiddleware, requireRole('manager', 'reviewer', 'admin'), async (req, res) => {
+  try {
+    const { comment } = req.body;
+    if (!comment || !comment.trim()) {
+      return res.status(400).json({ error: 'A comment explaining the requested changes is required.' });
+    }
+
+    const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
+    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+
+    draft.status = 'changes_requested';
+    draft.updatedAt = new Date();
+    await draft.save();
+
+    // Add comment to draft thread
+    const newComment = await Comment.create({
+      draftId: draft._id,
+      author: req.user.name,
+      authorRole: req.user.role,
+      text: `[Changes Requested]: ${comment.trim()}`
+    });
+
+    await AuditLog.create({
+      workspaceId: req.user.workspaceId,
+      draftId: draft._id,
+      action: 'request_changes',
+      actor: req.user.name,
+      actorRole: req.user.role,
+      details: { comment: comment.trim() }
+    });
+
+    res.json({
+      message: 'Changes requested. Draft status updated to changes_requested.',
+      draft,
+      comment: newComment
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to request changes', details: err.message });
+  }
+});
+
+// 4. POST COMMENT ON DRAFT
+router.post('/:id/comments', authMiddleware, async (req, res) => {
+  try {
+    const { text, findingId = null } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: 'Comment text is required' });
+    }
+
+    const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
+    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+
+    const comment = await Comment.create({
+      draftId: draft._id,
+      findingId,
+      author: req.user.name,
+      authorRole: req.user.role,
+      text: text.trim()
+    });
+
+    res.status(201).json(comment);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to post comment', details: err.message });
   }
 });
 
