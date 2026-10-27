@@ -1246,3 +1246,65 @@ body {
   border-radius: 4px;
   margin-top: 4px;
 }
+
+/* ==================== T11 ACCESSIBILITY & 375px PASS ==================== */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 14px;
+  }
+  .page-container, .drafts-container, .brand-kit-container, .review-container {
+    padding: 12px;
+  }
+  .login-screen {
+    padding: 12px;
+    margin: 20px auto;
+  }
+  .login-title {
+    font-size: 1.8rem;
+  }
+  .quick-try-steps {
+    grid-template-columns: 1fr;
+  }
+  .roles-grid {
+    grid-template-columns: 1fr;
+  }
+  .side-by-side-grid {
+    grid-template-columns: 1fr;
+  }
+  .revisions-control-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .diff-arrow {
+    text-align: center;
+    transform: rotate(90deg);
+  }
+  .review-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .review-actions {
+    flex-wrap: wrap;
+  }
+  .review-actions .btn {
+    flex: 1;
+    min-width: 140px;
+  }
+  .filters-bar {
+    flex-direction: column;
+  }
+  .modal-box {
+    margin: 10px;
+    max-height: 95vh;
+  }
+}

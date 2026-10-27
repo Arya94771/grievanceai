@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const {
   Draft,
   Revision,
@@ -20,6 +21,18 @@ const { extractTextFromFile } = require('../services/extractor');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+// Rate limiter for review endpoint (conforms to Gemini 15 RPM free tier)
+const reviewLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+  message: {
+    error: 'Too many review requests. Free tier limit is 15 requests per minute. Please wait a moment before re-auditing.',
+    fallback: true
+  },
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 // GET all drafts for current workspace
@@ -149,7 +162,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 });
 
 // RUN REVIEW (Exact Checks + AI Review Engine)
-router.post('/:id/review', authMiddleware, async (req, res) => {
+router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
   try {
     const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
     if (!draft) return res.status(404).json({ error: 'Draft not found' });
