@@ -21,6 +21,7 @@ if (fs.existsSync(envPath)) {
 }
 
 const authRoutes = require('./routes/auth');
+const brandKitRoutes = require('./routes/brandKit');
 const { seedBrewlineWorkspace } = require('./seed/seeder');
 
 const app = express();
@@ -44,6 +45,7 @@ app.get('/api/health', (req, res) => {
 
 // Auth Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/brand-kit', brandKitRoutes);
 
 // Serve client in production
 const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
