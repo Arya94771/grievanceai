@@ -12,7 +12,12 @@
     "start": "node server/index.js",
     "server": "node server/index.js",
     "client": "npm run dev --prefix client",
-    "smoke": "node server/tests/smoke.js"
+    "smoke": "node server/tests/smoke.js",
+    "test:server": "npm run test --prefix server",
+    "test:client": "npm run test --prefix client",
+    "test": "npm run test:server && npm run test:client",
+    "test:coverage": "npm run test:coverage --prefix server",
+    "test:watch": "npm run test:watch --prefix server"
   },
   "keywords": [
     "brand-governance",

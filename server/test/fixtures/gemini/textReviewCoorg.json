@@ -1,0 +1,22 @@
+[
+  {
+    "quote": "our high-altitude Coorg plantation at 4,500 meters",
+    "category": "claims",
+    "severity": "high",
+    "confidence": "clear",
+    "sourceType": "fact",
+    "sourceId": "F-01",
+    "reason": "Altitude statement of 4,500 meters contradicts approved fact F-01 stating altitude is 1,100 to 1,400 meters MSL.",
+    "suggestion": "our high-altitude Coorg plantation at 1,100 to 1,400 meters"
+  },
+  {
+    "quote": "[Image of guests enjoying a cupping session overlooking the Madikeri coffee plantation mountains]",
+    "category": "accessibility",
+    "severity": "medium",
+    "confidence": "clear",
+    "sourceType": "clause",
+    "sourceId": "G-12",
+    "reason": "Image placeholder is missing mandatory descriptive alt-text markup for screen reader accessibility.",
+    "suggestion": "[Image with alt-text: Guests enjoying a cupping session overlooking the Madikeri coffee plantation mountains]"
+  }
+]

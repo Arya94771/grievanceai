@@ -1,0 +1,32 @@
+[
+  {
+    "quote": "Brewline is officially voted the best coffee in India by every real connoisseur",
+    "category": "claims",
+    "severity": "high",
+    "confidence": "clear",
+    "sourceType": "clause",
+    "sourceId": "G-15",
+    "reason": "Publishing an unsupported absolute superlative without a cited national certification violates brand claims policy.",
+    "suggestion": "Brewline is crafted with care for true coffee enthusiasts."
+  },
+  {
+    "quote": "just ₹199 per 250g bag",
+    "category": "claims",
+    "severity": "high",
+    "confidence": "clear",
+    "sourceType": "fact",
+    "sourceId": "F-02",
+    "reason": "The stated price of ₹199 contradicts the approved official price master (F-02) where Monsoon Malabar Reserve is ₹499.",
+    "suggestion": "just ₹499 per 250g bag"
+  },
+  {
+    "quote": "You'd have to be stupid not to order right now before our inventory vanishes!",
+    "category": "tone",
+    "severity": "high",
+    "confidence": "clear",
+    "sourceType": "clause",
+    "sourceId": "G-01",
+    "reason": "Using aggressive sales pressure, insults, and urgency baiting violates the required inviting and respectful tone.",
+    "suggestion": "We invite you to explore our latest seasonal offering."
+  }
+]

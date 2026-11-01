@@ -1,0 +1,22 @@
+[
+  {
+    "quote": "450mg of pure organic caffeine per can",
+    "category": "claims",
+    "severity": "high",
+    "confidence": "clear",
+    "sourceType": "fact",
+    "sourceId": "F-05",
+    "reason": "Directly contradicts approved fact F-05 which states cans contain exactly 180mg of naturally extracted caffeine.",
+    "suggestion": "180mg of naturally extracted caffeine"
+  },
+  {
+    "quote": "cures morning fatigue permanently and guarantees 100% focus all day long",
+    "category": "claims",
+    "severity": "high",
+    "confidence": "clear",
+    "sourceType": "clause",
+    "sourceId": "G-17",
+    "reason": "Makes prohibited permanent health benefits and guaranteed focus claims, violating G-17.",
+    "suggestion": "provides natural alertness and sensory refreshment"
+  }
+]

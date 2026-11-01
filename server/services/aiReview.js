@@ -1,33 +1,7 @@
 const crypto = require('crypto');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { AiUseLog } = require('../models');
 const { runExactChecks } = require('./exactChecks');
-
-/**
- * Concurrency limiter to prevent free-tier 429 rate limit tripping
- */
-let activeAiCalls = 0;
-const aiCallQueue = [];
-
-function acquireAiLock() {
-  return new Promise((resolve) => {
-    if (activeAiCalls < 1) {
-      activeAiCalls++;
-      resolve();
-    } else {
-      aiCallQueue.push(resolve);
-    }
-  });
-}
-
-function releaseAiLock() {
-  activeAiCalls--;
-  if (aiCallQueue.length > 0) {
-    const next = aiCallQueue.shift();
-    activeAiCalls++;
-    next();
-  }
-}
+const { generateGeminiContent, acquireAiLock, releaseAiLock, isMockMode } = require('./geminiClient');
 
 /**
  * Computes deterministic hash of draft content + intent + brand kit version
@@ -184,7 +158,8 @@ function mergeAndDeduplicate(exactFindings, aiFindings) {
  * whether the cited source actually supports this finding. If no, downgrade to 'unverified'.
  */
 async function runSecondPassVerification(findings, apiKey, modelName = 'gemini-3.5-flash-lite') {
-  if (!apiKey || !Array.isArray(findings) || findings.length === 0) return findings;
+  if (!isMockMode() && (!apiKey || apiKey === 'your_gemini_api_key_here')) return findings;
+  if (!Array.isArray(findings) || findings.length === 0) return findings;
 
   const candidates = [];
   findings.forEach((f, idx) => {
@@ -196,16 +171,6 @@ async function runSecondPassVerification(findings, apiKey, modelName = 'gemini-3
   if (candidates.length === 0) return findings;
 
   try {
-    await acquireAiLock();
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: modelName,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.1
-      }
-    });
-
     const itemsPrompt = candidates.map((c, i) => `
 [Item ${i}]
 - Flagged Quote: "${c.quote}"
@@ -223,10 +188,13 @@ Respond strictly in JSON array format:
 ITEMS:
 ${itemsPrompt}`;
 
-    const result = await model.generateContent(prompt);
-    releaseAiLock();
+    const res = await generateGeminiContent({
+      prompt,
+      modelName,
+      temperature: 0.1
+    });
 
-    const evaluations = JSON.parse(result.response.text());
+    const evaluations = res.parsed || (res.text ? JSON.parse(res.text) : []);
 
     if (Array.isArray(evaluations)) {
       evaluations.forEach(ev => {
@@ -247,7 +215,6 @@ ${itemsPrompt}`;
       });
     }
   } catch (err) {
-    try { releaseAiLock(); } catch(e) {}
     console.warn('[Second-Pass Verification Note]:', err.message);
     // Keep T6 verified findings intact on error
     candidates.forEach(c => {
@@ -273,9 +240,9 @@ async function runFullReview({
 
   // 2. Check Gemini configuration
   const apiKey = process.env.GEMINI_API_KEY;
-  const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 
-  if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+  if (!isMockMode() && (!apiKey || apiKey === 'your_gemini_api_key_here')) {
     return {
       findings: exactFindings,
       aiUsed: false,
@@ -340,47 +307,20 @@ AUDIT RULES:
   let activeModelUsed = modelName;
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
     const prompt = `DRAFT CONTENT TO AUDIT:\n"""\n${redactedText}\n"""\n\nPerform a thorough brand compliance review. Return JSON array.`;
 
-    const candidateModels = [modelName, 'gemini-flash-latest', 'gemini-3.5-flash-lite'];
-    let lastError = null;
+    const res = await generateGeminiContent({
+      prompt,
+      systemInstruction,
+      temperature: 0.1,
+      modelName
+    });
 
-    for (const candidate of candidateModels) {
-      if (callSucceeded) break;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        await acquireAiLock();
-        try {
-          const model = genAI.getGenerativeModel({
-            model: candidate,
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.1
-            }
-          });
+    aiRawFindings = res.parsed || (res.text ? JSON.parse(res.text) : []);
+    callSucceeded = true;
+    activeModelUsed = res.model || modelName;
 
-          const result = await model.generateContent([
-            { text: systemInstruction },
-            { text: prompt }
-          ]);
-
-          const responseText = result.response.text();
-          aiRawFindings = JSON.parse(responseText);
-          callSucceeded = true;
-          activeModelUsed = candidate;
-          releaseAiLock();
-          break;
-        } catch (err) {
-          releaseAiLock();
-          lastError = err;
-          // Exponential backoff: 1000ms, then 2000ms
-          const backoffDelay = (attempt + 1) * 1000;
-          await new Promise(r => setTimeout(r, backoffDelay));
-        }
-      }
-    }
-
-    if (callSucceeded) {
+    if (callSucceeded && workspaceId) {
       // Log AI call in AiUseLog
       await AiUseLog.create({
         workspaceId,
@@ -390,10 +330,7 @@ AUDIT RULES:
         redactionsApplied: redactions,
         timestamp: new Date()
       }).catch(err => console.error('[AiUseLog Save Error]:', err.message));
-    } else {
-      throw lastError || new Error('All model candidates failed');
     }
-
   } catch (err) {
     console.error('[Gemini AI Review Error]:', err.message || err);
     fallbackNote = `AI review unavailable (${err.message.includes('429') ? 'Rate limit exceeded' : 'Service notice'}), showing rule checks only.`;

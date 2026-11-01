@@ -1,0 +1,16 @@
+[
+  {
+    "itemIndex": 0,
+    "supports": true,
+    "matchedSourceId": "F-02",
+    "exactSourceQuote": "The retail price of the 250g Monsoon Malabar Reserve roast is ₹499.",
+    "oneLineReason": "Price contradicts approved fact F-02."
+  },
+  {
+    "itemIndex": 1,
+    "supports": true,
+    "matchedSourceId": "G-15",
+    "exactSourceQuote": "Never publish unsupported absolute superlatives such as 'best coffee in India'.",
+    "oneLineReason": "Unsupported superlative violation confirmed."
+  }
+]

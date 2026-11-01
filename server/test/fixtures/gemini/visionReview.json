@@ -1,0 +1,20 @@
+{
+  "logoPresent": true,
+  "matchesApproved": "no",
+  "issues": [
+    "recoloured",
+    "clear-space violation"
+  ],
+  "box": [120, 250, 480, 750],
+  "explanation": "Detected logo is recoloured from approved corporate forest green (#1B4332) to bright red (#E63946), and text is encroaching within the 0.5x clear space boundary.",
+  "ocrTextBlocks": [
+    {
+      "text": "100% Organic Brewline Coffee",
+      "box": [600, 150, 680, 850]
+    },
+    {
+      "text": "Guaranteed to cure morning tiredness permanently",
+      "box": [720, 100, 820, 900]
+    }
+  ]
+}
