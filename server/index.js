@@ -44,6 +44,27 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// GridFS Image serving endpoint (V1)
+const { readFromGridFS } = require('./services/imageStorage');
+app.get('/api/images/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid image ID' });
+    }
+    const buffer = await readFromGridFS(id);
+    if (!buffer) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+    const isPng = buffer[0] === 0x89;
+    res.setHeader('Content-Type', isPng ? 'image/png' : 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve image', details: err.message });
+  }
+});
+
 // Auth Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/brand-kit', brandKitRoutes);

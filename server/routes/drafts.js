@@ -18,6 +18,7 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 const { runFullReview, computeReviewHash } = require('../services/aiReview');
 const { extractTextFromFile } = require('../services/extractor');
 const { generateMarkdownReport, generateHtmlReport } = require('../services/reportGenerator');
+const { processAndSecureImage, saveToGridFS } = require('../services/imageStorage');
 
 // Configure multer for memory storage (max 10MB)
 const upload = multer({
@@ -131,6 +132,62 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to create draft', details: err.message });
+  }
+});
+
+// POST upload creative visual to draft (V1)
+router.post('/:id/creatives', authMiddleware, upload.single('image'), async (req, res) => {
+  try {
+    const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
+    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+    if (!req.file) return res.status(400).json({ error: 'No image file uploaded' });
+
+    const secureResult = await processAndSecureImage(req.file.buffer, req.file.originalname, {
+      isAdmin: req.user.role === 'admin'
+    });
+
+    const gridResult = await saveToGridFS(
+      secureResult.buffer,
+      secureResult.sanitizedName,
+      secureResult.mimeType,
+      { draftId: draft._id, workspaceId: req.user.workspaceId }
+    );
+
+    const creativeObj = {
+      url: gridResult.url,
+      gridFsId: gridResult.gridFsId,
+      originalName: secureResult.sanitizedName,
+      mimeType: secureResult.mimeType,
+      width: secureResult.width,
+      height: secureResult.height,
+      hash: secureResult.hash,
+      uploadedAt: new Date()
+    };
+
+    draft.creatives.push(creativeObj);
+    draft.updatedAt = new Date();
+    await draft.save();
+
+    await AuditLog.create({
+      workspaceId: req.user.workspaceId,
+      draftId: draft._id,
+      action: 'upload_creative',
+      actor: req.user.name,
+      actorRole: req.user.role,
+      details: {
+        filename: secureResult.sanitizedName,
+        dimensions: `${secureResult.width}x${secureResult.height}`,
+        mimeType: secureResult.mimeType
+      }
+    });
+
+    res.status(201).json({
+      message: 'Creative uploaded successfully',
+      creative: creativeObj,
+      draft
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Image processing failed' });
   }
 });
 
