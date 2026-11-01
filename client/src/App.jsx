@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, FileText, BookOpen, LogOut, User, 
-  RotateCcw, Sparkles, AlertCircle, CheckCircle, RefreshCw 
+  RotateCcw, Sparkles, AlertCircle, CheckCircle, RefreshCw, BarChart3 
 } from 'lucide-react';
 import LoginView from './components/LoginView';
 import DraftsListView from './components/DraftsListView';
 import ReviewView from './components/ReviewView';
 import BrandKitView from './components/BrandKitView';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('grievance_token') || null);
@@ -14,8 +15,39 @@ export default function App() {
     localStorage.getItem('grievance_user') ? JSON.parse(localStorage.getItem('grievance_user')) : null
   );
 
-  const [currentView, setCurrentView] = useState('drafts'); // 'drafts' | 'review' | 'brand-kit'
+  const [currentView, setCurrentView] = useState('drafts'); // 'drafts' | 'review' | 'brand-kit' | 'insights'
   const [selectedDraftId, setSelectedDraftId] = useState(null);
+
+  // Parse URL hash to determine route
+  function parseHashRoute() {
+    const hash = window.location.hash.replace(/^#\/?/, '');
+    if (hash.startsWith('drafts/')) {
+      const draftId = hash.replace('drafts/', '');
+      setCurrentView('review');
+      setSelectedDraftId(draftId);
+    } else if (hash === 'brand-kit') {
+      setCurrentView('brand-kit');
+      setSelectedDraftId(null);
+    } else if (hash === 'insights') {
+      setCurrentView('insights');
+      setSelectedDraftId(null);
+    } else {
+      setCurrentView('drafts');
+      setSelectedDraftId(null);
+    }
+  }
+
+  // Set up hash listener for refresh preservation and deep links
+  useEffect(() => {
+    parseHashRoute();
+    const handleHashChange = () => parseHashRoute();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  function navigateTo(route) {
+    window.location.hash = route;
+  }
 
   useEffect(() => {
     if (token) {
@@ -37,7 +69,9 @@ export default function App() {
     setUser(newUser);
     localStorage.setItem('grievance_token', newToken);
     localStorage.setItem('grievance_user', JSON.stringify(newUser));
-    setCurrentView('drafts');
+    if (!window.location.hash || window.location.hash === '#/') {
+      navigateTo('drafts');
+    }
   }
 
   function handleLogout() {
@@ -46,6 +80,7 @@ export default function App() {
     setSelectedDraftId(null);
     localStorage.removeItem('grievance_token');
     localStorage.removeItem('grievance_user');
+    window.location.hash = '';
   }
 
   // Quick Role Switcher for Judges (no relogin required)
@@ -73,7 +108,7 @@ export default function App() {
     <div className="app-container">
       {/* Top Navigation */}
       <header className="top-navbar">
-        <div className="nav-brand" onClick={() => { setSelectedDraftId(null); setCurrentView('drafts'); }} style={{ cursor: 'pointer' }}>
+        <div className="nav-brand" onClick={() => navigateTo('drafts')} style={{ cursor: 'pointer' }}>
           <ShieldCheck size={22} className="text-primary" />
           <span>GrievanceAI</span>
           <span className="brand-badge">{user.workspaceName || 'Brewline Coffee Co.'}</span>
@@ -82,15 +117,21 @@ export default function App() {
         <nav className="nav-links">
           <button 
             className={`nav-btn ${currentView === 'drafts' && !selectedDraftId ? 'active' : ''}`}
-            onClick={() => { setSelectedDraftId(null); setCurrentView('drafts'); }}
+            onClick={() => navigateTo('drafts')}
           >
             <FileText size={16} /> Drafts &amp; Compliance
           </button>
           <button 
             className={`nav-btn ${currentView === 'brand-kit' ? 'active' : ''}`}
-            onClick={() => { setSelectedDraftId(null); setCurrentView('brand-kit'); }}
+            onClick={() => navigateTo('brand-kit')}
           >
             <BookOpen size={16} /> Brand Kit &amp; Rules
+          </button>
+          <button 
+            className={`nav-btn ${currentView === 'insights' ? 'active' : ''}`}
+            onClick={() => navigateTo('insights')}
+          >
+            <BarChart3 size={16} /> Brand Intelligence
           </button>
         </nav>
 
@@ -150,27 +191,38 @@ export default function App() {
         )}
       </div>
 
-      {/* Main Screen Content */}
+      {/* Main Screen Content with Error Boundary */}
       <main className="main-content">
-        {selectedDraftId ? (
-          <ReviewView
-            draftId={selectedDraftId}
-            token={token}
-            user={user}
-            onBack={() => setSelectedDraftId(null)}
-          />
-        ) : currentView === 'drafts' ? (
-          <DraftsListView
-            token={token}
-            user={user}
-            onSelectDraft={(id) => setSelectedDraftId(id)}
-          />
-        ) : (
-          <BrandKitView
-            token={token}
-            user={user}
-          />
-        )}
+        <ErrorBoundary>
+          {selectedDraftId ? (
+            <ReviewView
+              draftId={selectedDraftId}
+              token={token}
+              user={user}
+              onBack={() => navigateTo('drafts')}
+            />
+          ) : currentView === 'drafts' ? (
+            <DraftsListView
+              token={token}
+              user={user}
+              onSelectDraft={(id) => navigateTo(`drafts/${id}`)}
+            />
+          ) : currentView === 'brand-kit' ? (
+            <BrandKitView
+              token={token}
+              user={user}
+            />
+          ) : (
+            <div id="insights-view-container">
+              {/* Fallback placeholder until I5 InsightsDashboard mounts */}
+              <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+                <BarChart3 size={32} className="text-primary" style={{ margin: '0 auto 12px' }} />
+                <h3>Brand Intelligence &amp; Risk Insights</h3>
+                <p className="text-muted">Loading insights and compliance trends...</p>
+              </div>
+            </div>
+          )}
+        </ErrorBoundary>
       </main>
     </div>
   );

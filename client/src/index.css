@@ -976,10 +976,33 @@ body {
 
 @media (max-width: 600px) {
   .top-navbar {
-    padding: 0 12px;
+    height: auto;
+    min-height: 56px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .nav-brand {
+    gap: 6px;
   }
   .nav-brand span:not(.brand-badge) {
-    display: none;
+    display: inline;
+    font-size: 1rem;
+  }
+  .nav-links {
+    order: 3;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+  .nav-btn {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+    flex: 1;
+    justify-content: center;
   }
   .review-header {
     flex-direction: column;
