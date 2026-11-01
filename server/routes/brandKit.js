@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const {
   Workspace,
   Clause,
@@ -10,6 +11,12 @@ const {
 } = require('../models');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { seedBrewlineWorkspace } = require('../seed/seeder');
+const { processAndSecureImage, saveToGridFS } = require('../services/imageStorage');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 }
+});
 
 // Helper to bump workspace version on brand kit updates (for caching invalidation in T15)
 async function bumpWorkspaceVersion(workspaceId) {
@@ -299,6 +306,80 @@ router.delete('/terms/:id', authMiddleware, requireRole('admin'), async (req, re
 });
 
 // ==================== ASSETS (Admin Only) ====================
+
+// Admin Upload Approved Logo (V2)
+router.post('/assets/logo', authMiddleware, requireRole('admin'), upload.single('logo'), async (req, res) => {
+  try {
+    const { name, usageRule, minWidthPercent = 8, clearSpaceRule = '0.5x clear space around logo' } = req.body;
+    if (!name || !req.file) {
+      return res.status(400).json({ error: 'Asset name and logo image file are required' });
+    }
+
+    const secureResult = await processAndSecureImage(req.file.buffer, req.file.originalname, {
+      isAdmin: true,
+      isSvgBrandAsset: true
+    });
+
+    const gridResult = await saveToGridFS(
+      secureResult.buffer,
+      secureResult.sanitizedName,
+      secureResult.mimeType,
+      { workspaceId: req.user.workspaceId, assetType: 'logo' }
+    );
+
+    const asset = await Asset.create({
+      workspaceId: req.user.workspaceId,
+      name: name.trim(),
+      type: 'logo',
+      usageRule: usageRule ? usageRule.trim() : 'Primary corporate logo. Must maintain aspect ratio, minimum size, and 0.5x clear space.',
+      imageUrl: gridResult.url,
+      gridFsId: gridResult.gridFsId,
+      aspectRatio: Number(secureResult.aspectRatio.toFixed(3)),
+      minWidthPercent: Number(minWidthPercent) || 8,
+      clearSpaceRule: clearSpaceRule.trim(),
+      forbiddenTreatments: ['recoloured', 'stretched', 'rotated', 'cropped', 'low-contrast']
+    });
+
+    await bumpWorkspaceVersion(req.user.workspaceId);
+    res.status(201).json(asset);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to upload brand logo' });
+  }
+});
+
+// Admin Save Brand Color Palette (V2)
+router.post('/assets/palette', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    const { name, usageRule, palette } = req.body;
+    if (!name || !Array.isArray(palette) || palette.length === 0) {
+      return res.status(400).json({ error: 'Palette name and at least one color swatch are required' });
+    }
+
+    const cleanedColors = palette.map(c => ({
+      hex: (c.hex || '').trim().toUpperCase(),
+      name: (c.name || '').trim(),
+      tolerance: Number(c.tolerance) || 12,
+      isPrimary: !!c.isPrimary
+    })).filter(c => /^#[0-9A-F]{6}$/i.test(c.hex));
+
+    if (cleanedColors.length === 0) {
+      return res.status(400).json({ error: 'At least one valid 6-character hex color (e.g. #1B4332) is required' });
+    }
+
+    const asset = await Asset.create({
+      workspaceId: req.user.workspaceId,
+      name: name.trim(),
+      type: 'palette',
+      usageRule: usageRule ? usageRule.trim() : 'Approved brand color palette for marketing and advertising creatives.',
+      palette: cleanedColors
+    });
+
+    await bumpWorkspaceVersion(req.user.workspaceId);
+    res.status(201).json(asset);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to save palette' });
+  }
+});
 
 router.post('/assets', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
