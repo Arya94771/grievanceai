@@ -9,6 +9,7 @@ const {
   Clause,
   Fact,
   Term,
+  Asset,
   Comment,
   AuditLog,
   Workspace,
@@ -16,9 +17,10 @@ const {
 } = require('../models');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { runFullReview, computeReviewHash } = require('../services/aiReview');
+const { runVisualAudit } = require('../services/aiVisionReview');
 const { extractTextFromFile } = require('../services/extractor');
 const { generateMarkdownReport, generateHtmlReport } = require('../services/reportGenerator');
-const { processAndSecureImage, saveToGridFS } = require('../services/imageStorage');
+const { processAndSecureImage, saveToGridFS, readFromGridFS } = require('../services/imageStorage');
 
 // Configure multer for memory storage (max 10MB)
 const upload = multer({
@@ -272,10 +274,11 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
     }
 
     // Fetch workspace brand kit
-    const [clauses, facts, terms] = await Promise.all([
+    const [clauses, facts, terms, assets] = await Promise.all([
       Clause.find({ workspaceId: req.user.workspaceId }),
       Fact.find({ workspaceId: req.user.workspaceId }),
-      Term.find({ workspaceId: req.user.workspaceId })
+      Term.find({ workspaceId: req.user.workspaceId }),
+      Asset.find({ workspaceId: req.user.workspaceId })
     ]);
 
     const reviewResult = await runFullReview({
@@ -288,15 +291,52 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
       draftId: draft._id
     });
 
+    let combinedFindings = [...reviewResult.findings];
+    let aiUsedOverall = reviewResult.aiUsed;
+    let reviewNotes = reviewResult.note ? [reviewResult.note] : [];
+
+    // Run visual compliance engine if creatives are attached (V4)
+    if (Array.isArray(draft.creatives) && draft.creatives.length > 0) {
+      for (const creative of draft.creatives) {
+        try {
+          const creativeBuf = await readFromGridFS(creative.gridFsId);
+          if (creativeBuf) {
+            const visualRes = await runVisualAudit({
+              creativeBuffer: creativeBuf,
+              creativeId: creative._id,
+              draftId: draft._id,
+              workspaceId: req.user.workspaceId,
+              clauses,
+              facts,
+              terms,
+              approvedAssets: assets
+            });
+
+            if (visualRes.aiUsed) aiUsedOverall = true;
+            if (visualRes.note) reviewNotes.push(visualRes.note);
+            combinedFindings = combinedFindings.concat(visualRes.findings);
+          }
+        } catch (vErr) {
+          console.warn('[Visual Review Loop Note]:', vErr.message);
+        }
+      }
+    }
+
     // Clear previous open findings
     await Finding.deleteMany({ draftId: draft._id, status: 'open' });
 
-    const findingsToInsert = reviewResult.findings.map(f => ({
+    const findingsToInsert = combinedFindings.map(f => ({
       draftId: draft._id,
       revisionId: draft.currentRevisionId,
+      mediaType: f.mediaType || 'text',
+      creativeId: f.creativeId || null,
+      region: f.region || null,
+      evidenceCropId: f.evidenceCropId || null,
+      approvedAssetId: f.approvedAssetId || null,
+      measured: f.measured || {},
       quote: f.quote,
-      start: f.start,
-      end: f.end,
+      start: f.start || 0,
+      end: f.end || 0,
       category: f.category,
       severity: f.severity,
       confidence: f.confidence,
@@ -318,8 +358,8 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
         cacheKey,
         workspaceId: req.user.workspaceId,
         draftId: draft._id,
-        findings: reviewResult.findings,
-        aiUsed: reviewResult.aiUsed,
+        findings: combinedFindings,
+        aiUsed: aiUsedOverall,
         isPrecomputedSample: false,
         createdAt: new Date()
       },
@@ -334,17 +374,17 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
       actorRole: req.user.role,
       details: {
         totalFindings: savedFindings.length,
-        aiUsed: reviewResult.aiUsed,
+        aiUsed: aiUsedOverall,
         forceLive,
-        note: reviewResult.note
+        note: reviewNotes.join('; ')
       }
     });
 
     res.json({
       message: 'Review completed successfully',
-      aiUsed: reviewResult.aiUsed,
+      aiUsed: aiUsedOverall,
       cached: false,
-      note: reviewResult.note,
+      note: reviewNotes.join('; '),
       findings: savedFindings
     });
   } catch (err) {
