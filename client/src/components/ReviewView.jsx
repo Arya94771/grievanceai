@@ -4,13 +4,14 @@ import {
   RotateCcw, ArrowRight, Filter, ChevronRight, Eye, Edit3, 
   FileText, ExternalLink, CornerDownRight, CheckCircle2,
   Send, AlertTriangle, ShieldAlert, CheckSquare, MessageCircle,
-  Download
+  Download, Image as ImageIcon
 } from 'lucide-react';
 
 import DraftHistoryView from './DraftHistoryView';
+import ImageReviewPanel from './ImageReviewPanel';
 
 export default function ReviewView({ draftId, token, user, onBack }) {
-  const [activeMainTab, setActiveMainTab] = useState('review'); // 'review' | 'history'
+  const [activeMainTab, setActiveMainTab] = useState('review'); // 'review' | 'visual' | 'history'
   const [draft, setDraft] = useState(null);
   const [revisions, setRevisions] = useState([]);
   const [findings, setFindings] = useState([]);
@@ -458,13 +459,19 @@ export default function ReviewView({ draftId, token, user, onBack }) {
         </div>
       )}
 
-      {/* Review / History View Navigation Tabs (T10) */}
+      {/* Review / Visual / History View Navigation Tabs (T10, V5) */}
       <div className="tabs-nav mb-4">
         <button 
           className={`tab-btn ${activeMainTab === 'review' ? 'active' : ''}`}
           onClick={() => setActiveMainTab('review')}
         >
-          <Sparkles size={16} /> Compliance Review Workspace
+          <Sparkles size={16} /> Text Review Workspace
+        </button>
+        <button 
+          className={`tab-btn ${activeMainTab === 'visual' ? 'active' : ''}`}
+          onClick={() => setActiveMainTab('visual')}
+        >
+          <ImageIcon size={16} /> Visual Brand Review ({draft.creatives?.length || 0})
         </button>
         <button 
           className={`tab-btn ${activeMainTab === 'history' ? 'active' : ''}`}
@@ -474,7 +481,18 @@ export default function ReviewView({ draftId, token, user, onBack }) {
         </button>
       </div>
 
-      {activeMainTab === 'history' ? (
+      {activeMainTab === 'visual' ? (
+        <ImageReviewPanel
+          draft={draft}
+          findings={findings}
+          token={token}
+          user={user}
+          activeFindingId={activeFindingId}
+          onSelectFinding={setActiveFindingId}
+          onDecision={handleDecision}
+          onRefreshDraft={loadDraftData}
+        />
+      ) : activeMainTab === 'history' ? (
         <DraftHistoryView
           draft={draft}
           revisions={revisions}
