@@ -7,6 +7,7 @@ import LoginView from './components/LoginView';
 import DraftsListView from './components/DraftsListView';
 import ReviewView from './components/ReviewView';
 import BrandKitView from './components/BrandKitView';
+import InsightsDashboard from './components/InsightsDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
@@ -213,14 +214,11 @@ export default function App() {
               user={user}
             />
           ) : (
-            <div id="insights-view-container">
-              {/* Fallback placeholder until I5 InsightsDashboard mounts */}
-              <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
-                <BarChart3 size={32} className="text-primary" style={{ margin: '0 auto 12px' }} />
-                <h3>Brand Intelligence &amp; Risk Insights</h3>
-                <p className="text-muted">Loading insights and compliance trends...</p>
-              </div>
-            </div>
+            <InsightsDashboard
+              token={token}
+              user={user}
+              onSelectDraft={(id) => navigateTo(`drafts/${id}`)}
+            />
           )}
         </ErrorBoundary>
       </main>
