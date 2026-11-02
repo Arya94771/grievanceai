@@ -9,6 +9,7 @@ import {
 
 import DraftHistoryView from './DraftHistoryView';
 import ImageReviewPanel from './ImageReviewPanel';
+import VerificationBadge from './VerificationBadge';
 
 export default function ReviewView({ draftId, token, user, onBack }) {
   const [activeMainTab, setActiveMainTab] = useState('review'); // 'review' | 'visual' | 'history'
@@ -681,6 +682,13 @@ export default function ReviewView({ draftId, token, user, onBack }) {
                         <div className="source-label">Brand Standard Source:</div>
                         <div className="source-text">{finding.sourceText}</div>
                       </div>
+                    )}
+
+                    {finding.verificationTrail && finding.verificationTrail.length > 0 && (
+                      <VerificationBadge
+                        trail={finding.verificationTrail}
+                        status={finding.verificationStatus}
+                      />
                     )}
 
                     {finding.suggestion && (
