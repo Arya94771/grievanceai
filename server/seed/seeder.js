@@ -431,6 +431,15 @@ async function seedBrewlineWorkspace({ forceReset = false } = {}) {
     console.warn('[Seeder] Visual asset seeding skipped or encountered error:', err.message);
   }
 
+  // 7. Seed 8 Weeks of Historical Review Data for Insights Dashboard (I6)
+  try {
+    const { seedHistoricalReviews } = require('./historicalSeed');
+    const allUsers = await User.find({ workspaceId });
+    await seedHistoricalReviews(workspaceId, allUsers);
+  } catch (err) {
+    console.warn('[Seeder] Historical review seeding skipped or encountered error:', err.message);
+  }
+
   console.log('[Seeder] Brewline Coffee Co. seeded successfully.');
   return { workspace, userMap };
 }
