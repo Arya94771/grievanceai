@@ -405,13 +405,21 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
 // DECIDE ON A FINDING (Accept, Reject, Dispute)
 router.post('/:id/findings/:findingId/decision', authMiddleware, async (req, res) => {
   try {
-    const { decision, decisionNote = '' } = req.body;
+    const { decision, decisionNote = '', version } = req.body;
     if (!['accepted', 'rejected', 'disputed'].includes(decision)) {
       return res.status(400).json({ error: 'Decision must be accepted, rejected, or disputed' });
     }
 
     const draft = await Draft.findOne({ _id: req.params.id, workspaceId: req.user.workspaceId });
     if (!draft) return res.status(404).json({ error: 'Draft not found' });
+
+    // R1: Optimistic locking check if version provided
+    if (version !== undefined && draft.version !== undefined && Number(version) !== Number(draft.version)) {
+      return res.status(409).json({
+        error: 'CONFLICT',
+        message: 'This draft was modified by another reviewer. Please refresh and review latest changes before proceeding.'
+      });
+    }
 
     const finding = await Finding.findOne({ _id: req.params.findingId, draftId: draft._id });
     if (!finding) return res.status(404).json({ error: 'Finding not found' });
@@ -446,6 +454,7 @@ router.post('/:id/findings/:findingId/decision', authMiddleware, async (req, res
       draft.content = updatedContent;
       draft.currentRevisionId = newRevision._id;
       draft.updatedAt = new Date();
+      draft.version = (draft.version || 1) + 1; // Increment version
       await draft.save();
 
       const remainingFindings = await Finding.find({ draftId: draft._id, status: 'open' });
