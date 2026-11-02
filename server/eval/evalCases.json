@@ -1,0 +1,122 @@
+[
+  {
+    "id": "T-01",
+    "text": "Brewline beans are roasted fresh in our Coorg roastery at 1,200m elevation.",
+    "expectedCategory": "none",
+    "expectedCount": 0
+  },
+  {
+    "id": "T-02",
+    "text": "Our industrial manufacturing facility mass-produces over 10,000 packs daily.",
+    "expectedCategory": "terminology",
+    "expectedCount": 1
+  },
+  {
+    "id": "T-03",
+    "text": "India's only 100% organic coffee with guaranteed lowest prices in the country.",
+    "expectedCategory": "claims",
+    "expectedCount": 2
+  },
+  {
+    "id": "T-04",
+    "text": "Hey bro click here now for insane deals on fresh roast bags!!",
+    "expectedCategory": "tone",
+    "expectedCount": 2
+  },
+  {
+    "id": "T-05",
+    "text": "Brewline Estate Blend is priced at ₹349 per 250g pack.",
+    "expectedCategory": "none",
+    "expectedCount": 0
+  },
+  {
+    "id": "T-06",
+    "text": "Brewline Estate Blend costs only ₹149 per pack, the cheapest in India.",
+    "expectedCategory": "claims",
+    "expectedCount": 1
+  },
+  {
+    "id": "T-07",
+    "text": "We source coffee from plantation-grown monoculture crops across the valley.",
+    "expectedCategory": "terminology",
+    "expectedCount": 1
+  },
+  {
+    "id": "T-08",
+    "text": "Our shade-grown Arabica beans are harvested by hand in Coorg.",
+    "expectedCategory": "none",
+    "expectedCount": 0
+  },
+  {
+    "id": "T-09",
+    "text": "Cures morning fatigue and lowers high blood pressure permanently.",
+    "expectedCategory": "claims",
+    "expectedCount": 1
+  },
+  {
+    "id": "T-10",
+    "text": "Direct trade ensures our growers receive 40% above fair-trade standard rates.",
+    "expectedCategory": "none",
+    "expectedCount": 0
+  },
+  {
+    "id": "T-11",
+    "text": "FACTORY MASS-PRODUCED BLEND AVAILABLE TODAY ONLY CLICK HERE",
+    "expectedCategory": "terminology",
+    "expectedCount": 2
+  },
+  {
+    "id": "T-12",
+    "text": "Handcrafted micro-batches roasted every Tuesday in Coorg.",
+    "expectedCategory": "none",
+    "expectedCount": 0
+  },
+  {
+    "id": "T-13",
+    "text": "Our sun-scorched beans provide high caffeine kicks.",
+    "expectedCategory": "terminology",
+    "expectedCount": 1
+  },
+  {
+    "id": "T-14",
+    "text": "Brewline coffee is grown at 500m elevation in coastal plains.",
+    "expectedCategory": "claims",
+    "expectedCount": 1
+  },
+  {
+    "id": "T-15",
+    "text": "Each batch is tested for cupping score above 84 points.",
+    "expectedCategory": "none",
+    "expectedCount": 0
+  },
+  {
+    "id": "T-16",
+    "text": "The single best beverage on earth with zero acidity guaranteed.",
+    "expectedCategory": "claims",
+    "expectedCount": 1
+  },
+  {
+    "id": "T-17",
+    "text": "Artisanal packaging made from 100% recyclable paper.",
+    "expectedCategory": "none",
+    "expectedCount": 0
+  },
+  {
+    "id": "T-18",
+    "text": "We dump extra inventory into discount supermarket liquidation bins.",
+    "expectedCategory": "tone",
+    "expectedCount": 1
+  },
+  {
+    "id": "T-19",
+    "text": "Brewline never compromises on fair grower compensation.",
+    "expectedCategory": "none",
+    "expectedCount": 0
+  },
+  {
+    "id": "T-20",
+    "text": "Guaranteed 100% antioxidant cure for chronic illness.",
+    "expectedCategory": "claims",
+    "expectedCount": 1
+  }
+]
