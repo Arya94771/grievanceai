@@ -423,6 +423,14 @@ async function seedBrewlineWorkspace({ forceReset = false } = {}) {
     }
   }
 
+  // 6. Seed Visual Brand Assets and Flawed Creatives (V6)
+  try {
+    const { seedVisualBrandAssets } = require('./visualSeed');
+    await seedVisualBrandAssets(workspaceId);
+  } catch (err) {
+    console.warn('[Seeder] Visual asset seeding skipped or encountered error:', err.message);
+  }
+
   console.log('[Seeder] Brewline Coffee Co. seeded successfully.');
   return { workspace, userMap };
 }
