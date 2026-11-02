@@ -37,10 +37,10 @@ async function startDemoServer() {
     const app = require('./index');
     console.log(`[Demo] GrievanceAI Demo Server ready at: http://localhost:${process.env.PORT}`);
     console.log('Demo Credentials:');
-    console.log('  - Creator:  aarav@brewline.in / password123');
-    console.log('  - Manager:  kavita@brewline.in / password123');
-    console.log('  - Reviewer: priya@brewline.in / password123');
-    console.log('  - Admin:    admin@brewline.in / password123');
+    console.log('  - Creator:  creator@brewline.com  / BrewlineDemo2026!Creator');
+    console.log('  - Manager:  manager@brewline.com  / BrewlineDemo2026!Manager');
+    console.log('  - Reviewer: reviewer@brewline.com / BrewlineDemo2026!Reviewer');
+    console.log('  - Admin:    admin@brewline.com    / BrewlineDemo2026!Admin');
   } catch (err) {
     console.error('[Demo] Failed to start demo server:', err);
     process.exit(1);

@@ -139,6 +139,54 @@ export default function DraftsListView({ token, user, onSelectDraft }) {
               <span>Submit for review &amp; switch role to <strong>Manager</strong> to approve or request changes.</span>
             </div>
           </div>
+
+          {/* Demo Accounts Credentials Table */}
+          <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#1B4332', marginBottom: '8px' }}>
+              Demo Workspace Accounts (Reset every 6 hours):
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', fontSize: '0.78rem', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', borderBottom: '1px solid #CBD5E1' }}>
+                    <th style={{ padding: '4px 8px' }}>Role</th>
+                    <th style={{ padding: '4px 8px' }}>Name</th>
+                    <th style={{ padding: '4px 8px' }}>Email</th>
+                    <th style={{ padding: '4px 8px' }}>Password</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                    <td style={{ padding: '4px 8px', fontWeight: '600' }}>Creator</td>
+                    <td style={{ padding: '4px 8px' }}>Aarav Mehta</td>
+                    <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>creator@brewline.com</td>
+                    <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>BrewlineDemo2026!Creator</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                    <td style={{ padding: '4px 8px', fontWeight: '600' }}>Manager</td>
+                    <td style={{ padding: '4px 8px' }}>Maya Sen</td>
+                    <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>manager@brewline.com</td>
+                    <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>BrewlineDemo2026!Manager</td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                    <td style={{ padding: '4px 8px', fontWeight: '600' }}>Reviewer</td>
+                    <td style={{ padding: '4px 8px' }}>Rohan Deshmukh</td>
+                    <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>reviewer@brewline.com</td>
+                    <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>BrewlineDemo2026!Reviewer</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '4px 8px', fontWeight: '600' }}>Admin</td>
+                    <td style={{ padding: '4px 8px' }}>Priya Sharma</td>
+                    <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>admin@brewline.com</td>
+                    <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>BrewlineDemo2026!Admin</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: '6px' }}>
+              Note: Demo workspace uses fictional data (Brewline Coffee Co.). Changes reset every 6 hours. Demo accounts reach only this fictional workspace.
+            </div>
+          </div>
         </div>
       )}
 

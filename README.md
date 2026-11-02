@@ -11,7 +11,7 @@
 Judges can test the entire value loop in under 60 seconds with **zero signup**:
 
 1. **Open the live application URL**.
-2. **Click "Try as Creator"** on the home screen (logs in as Aarav Mehta).
+2. **Click "Try as Creator"** on the home screen (logs in as Aarav Mehta) or sign in manually with any demo account.
 3. **Select Sample Draft 1**: *"Monsoon Roast Social Announcement"*.
 4. **Click "Run Review"**:
    - The dual-engine auditor triggers: exact rule checks run instantly, and Gemini verifies tone, terminology, and claims against Brewline brand guidelines.
@@ -24,6 +24,19 @@ Judges can test the entire value loop in under 60 seconds with **zero signup**:
    - Notice that if any `clear` violations remain open, direct approval is **strictly blocked** by compliance policy.
    - Click **"Approve"** and supply a documented override reason, or click **"Request Changes"** to send feedback back to the creator.
    - Visit the **"Revisions & Audit Trail"** tab to view the side-by-side diff and immutable activity timeline.
+
+---
+
+## 🔑 Demo Accounts & Credentials
+
+| Role | Name | Email | Password | Access Scope |
+| :--- | :--- | :--- | :--- | :--- |
+| **Creator** | Aarav Mehta | `creator@brewline.com` | `BrewlineDemo2026!Creator` | Draft copy, upload creatives, review AI suggestions |
+| **Manager** | Maya Sen | `manager@brewline.com` | `BrewlineDemo2026!Manager` | Review drafts, request changes, execute approval overrides |
+| **Reviewer** | Rohan Deshmukh | `reviewer@brewline.com` | `BrewlineDemo2026!Reviewer` | Compliance officer, evidence-crop audit, discussion threads |
+| **Admin** | Priya Sharma | `admin@brewline.com` | `BrewlineDemo2026!Admin` | Brand kit management, logo/palette rules, demo resets |
+
+> **Note**: Demo workspace uses fictional data (Brewline Coffee Co.). Changes reset every 6 hours. Demo accounts reach only the fictional demo workspace (no env vars, other workspaces, or real user data). Manual email/password login is fully supported with these credentials.
 
 ---
 

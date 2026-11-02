@@ -8,6 +8,15 @@ GrievanceAI is an autonomous brand-governance and content compliance platform en
 
 ### 1. Demo-First UX & Authentication (S1–S4, T3)
 - **One-Click Demo Logins**: Dedicated buttons for **Creator**, **Manager**, **Reviewer**, and **Admin** — zero registration or signup barrier.
+- **Demo Accounts Card & Manual Login**: Dedicated card on login page displaying role, name, email, password, and instant "Copy" / "Use in Form" buttons.
+- **Demo Credentials Matrix**:
+  | Role | Name | Email | Password | Access Scope |
+  | :--- | :--- | :--- | :--- | :--- |
+  | **Creator** | Aarav Mehta | `creator@brewline.com` | `BrewlineDemo2026!Creator` | Draft copy, uploads creatives, reviews AI suggestions |
+  | **Manager** | Maya Sen | `manager@brewline.com` | `BrewlineDemo2026!Manager` | Review drafts, request changes, execute approval overrides |
+  | **Reviewer** | Rohan Deshmukh | `reviewer@brewline.com` | `BrewlineDemo2026!Reviewer` | Compliance officer, evidence-crop audit, discussion threads |
+  | **Admin** | Priya Sharma | `admin@brewline.com` | `BrewlineDemo2026!Admin` | Brand kit management, logo/palette rules, demo resets |
+  *Note: Demo workspace uses fictional data (Brewline Coffee Co.). Changes reset every 6 hours. Demo accounts reach only the fictional demo workspace (no env vars, other workspaces, or real user data).*
 - **Judge's 60-Second Walkthrough**: Clear 4-step workflow banner on the home screen.
 - **Preloaded Workspace**: Pre-seeded with "Brewline Coffee Co." (fictional artisanal roaster) with 20 brand clauses, 8 verified facts, 10 brand terminology rules, 4 brand assets, and 3 sample drafts with seeded deliberate errors.
 - **Instant Role Switcher**: Top-bar role dropdown allows switching between Creator, Manager, Reviewer, and Admin without re-logging.

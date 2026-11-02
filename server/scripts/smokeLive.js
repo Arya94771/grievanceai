@@ -64,10 +64,10 @@ async function runLiveSmoke() {
 
   // 2. Login all 4 roles
   const roles = [
-    { email: 'aarav@brewline.in', role: 'creator' },
-    { email: 'kavita@brewline.in', role: 'manager' },
-    { email: 'priya@brewline.in', role: 'reviewer' },
-    { email: 'admin@brewline.in', role: 'admin' }
+    { email: 'creator@brewline.com', role: 'creator', password: 'BrewlineDemo2026!Creator' },
+    { email: 'manager@brewline.com', role: 'manager', password: 'BrewlineDemo2026!Manager' },
+    { email: 'reviewer@brewline.com', role: 'reviewer', password: 'BrewlineDemo2026!Reviewer' },
+    { email: 'admin@brewline.com', role: 'admin', password: 'BrewlineDemo2026!Admin' }
   ];
 
   let adminToken = null;
@@ -77,7 +77,7 @@ async function runLiveSmoke() {
     console.log(`[Step ${step++}] Authenticating ${r.role} (${r.email})...`);
     const login = await makeRequest('/api/auth/login', {
       method: 'POST',
-      body: { email: r.email, password: 'password123' }
+      body: { email: r.email, password: r.password }
     });
     if (login.status !== 200 || !login.body.token) {
       throw new Error(`Login failed for ${r.email}: status ${login.status}`);

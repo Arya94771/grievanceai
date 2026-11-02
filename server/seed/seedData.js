@@ -233,25 +233,25 @@ const demoUsers = [
     name: 'Aarav Mehta',
     email: 'creator@brewline.com',
     role: 'creator',
-    password: 'demo123'
+    password: 'BrewlineDemo2026!Creator'
   },
   {
     name: 'Maya Sen',
     email: 'manager@brewline.com',
     role: 'manager',
-    password: 'demo123'
+    password: 'BrewlineDemo2026!Manager'
   },
   {
     name: 'Rohan Deshmukh',
     email: 'reviewer@brewline.com',
     role: 'reviewer',
-    password: 'demo123'
+    password: 'BrewlineDemo2026!Reviewer'
   },
   {
     name: 'Priya Sharma',
     email: 'admin@brewline.com',
     role: 'admin',
-    password: 'demo123'
+    password: 'BrewlineDemo2026!Admin'
   }
 ];
 

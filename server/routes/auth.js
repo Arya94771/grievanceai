@@ -69,7 +69,17 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const cleanEmail = email.toLowerCase().trim();
+    let user = await User.findOne({ email: cleanEmail });
+
+    // If user not found and this is a recognized demo account email, auto-seed/ensure Brewline demo workspace
+    const demoEmails = ['creator@brewline.com', 'manager@brewline.com', 'reviewer@brewline.com', 'admin@brewline.com'];
+    if (!user && demoEmails.includes(cleanEmail)) {
+      console.log(`[Auth] Auto-seeding workspace on demand for demo account login: ${cleanEmail}`);
+      await seedBrewlineWorkspace();
+      user = await User.findOne({ email: cleanEmail });
+    }
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
@@ -80,6 +90,11 @@ router.post('/login', async (req, res) => {
     }
 
     const workspace = await Workspace.findById(user.workspaceId);
+
+    // Security check: demo accounts must strictly belong only to their demo workspace
+    if (demoEmails.includes(cleanEmail) && workspace && workspace.slug !== 'brewline-coffee') {
+      return res.status(403).json({ error: 'Access restricted: demo credentials permitted only for fictional demo workspace.' });
+    }
 
     const token = jwt.sign(
       {
