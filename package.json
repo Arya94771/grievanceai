@@ -17,7 +17,9 @@
     "test:client": "npm run test --prefix client",
     "test": "npm run test:server && npm run test:client",
     "test:coverage": "npm run test:coverage --prefix server",
-    "test:watch": "npm run test:watch --prefix server"
+    "test:watch": "npm run test:watch --prefix server",
+    "demo": "node server/demoServer.js",
+    "eval": "node server/eval/run.js"
   },
   "keywords": [
     "brand-governance",
