@@ -1,0 +1,45 @@
+name: GrievanceAI CI Suite
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+        cache-dependency-path: |
+          server/package-lock.json
+          client/package-lock.json
+
+    - name: Install Server Dependencies
+      run: npm install --prefix server
+
+    - name: Install Client Dependencies
+      run: npm install --prefix client --include=dev
+
+    - name: Run Backend Vitest Suite (AI Mock Mode)
+      env:
+        AI_MODE: mock
+        JWT_SECRET: ci_test_secret_key_2026
+      run: npm run test --prefix server
+
+    - name: Run Frontend Tests
+      run: npm run test --prefix client
+
+    - name: Run Governance Evaluation Benchmark
+      run: node server/eval/run.js
+
+    - name: Build React Client (Vite)
+      run: npm run build --prefix client
