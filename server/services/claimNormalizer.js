@@ -4,8 +4,8 @@
  * dates (multiple formats), ranges, quantities, and absolute/superlative terms.
  */
 
-// Currency patterns
-const CURRENCY_REGEX = /(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d+)?)\s*(lakh|crore|k)?/gi;
+// Currency patterns: supports ₹, Rs., INR prefixes OR standalone numbers followed by lakh/crore/k
+const CURRENCY_REGEX = /(?:(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d+)?)\s*(lakh|crore|k)?|([\d,]+(?:\.\d+)?)\s*(lakh|crore)\b)/gi;
 
 // Percentage patterns
 const PERCENTAGE_REGEX = /(\d+(?:\.\d+)?)\s*%/g;
@@ -31,9 +31,11 @@ function parseIndianCurrency(rawStr = '') {
   CURRENCY_REGEX.lastIndex = 0;
 
   while ((match = CURRENCY_REGEX.exec(rawStr)) !== null) {
-    let numStr = match[1].replace(/,/g, '');
+    const numPart = match[1] || match[3];
+    const unitPart = match[2] || match[4] || '';
+    let numStr = numPart.replace(/,/g, '');
     let val = parseFloat(numStr);
-    const unit = (match[2] || '').toLowerCase();
+    const unit = unitPart.toLowerCase();
 
     if (unit === 'lakh') {
       val = val * 100000;
