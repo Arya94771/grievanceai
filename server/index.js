@@ -23,6 +23,7 @@ if (fs.existsSync(envPath)) {
 const authRoutes = require('./routes/auth');
 const brandKitRoutes = require('./routes/brandKit');
 const draftsRoutes = require('./routes/drafts');
+const insightsRoutes = require('./routes/insights');
 const { seedBrewlineWorkspace } = require('./seed/seeder');
 
 const app = express();
@@ -69,6 +70,7 @@ app.get('/api/images/:id', async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/brand-kit', brandKitRoutes);
 app.use('/api/drafts', draftsRoutes);
+app.use('/api/insights', insightsRoutes);
 
 // Serve client in production
 const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
