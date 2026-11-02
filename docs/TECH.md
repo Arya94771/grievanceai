@@ -88,7 +88,45 @@ Before any draft text or prompt is dispatched across the network to Google AI St
 
 ---
 
-## 4. Database Collections
+## 4. Brand Intelligence & Risk Scoring Formula (I1)
+
+GrievanceAI features an explainable, deterministic risk scoring engine that scores each finding on a 0–100 scale:
+
+$$\text{RiskScore} = \text{Clamp}_{0..100}\Big(\big(\text{BaseWeight}_{\text{category}} + \Delta_{\text{severity}} + \Delta_{\text{confidence}} + \text{Bonus}_{\text{regulated}}\big) \times \text{Multiplier}_{\text{channel}}\Big)$$
+
+### Parameters & Weights
+1. **Category Base Weight ($\text{BaseWeight}$)**:
+   - Factual Contradiction / Unsupported Claim: `+45`
+   - Banned Term / Disallowed Terminology: `+35`
+   - Brand Identity / Logo Misuse: `+35`
+   - Off-Palette Color Variance: `+25`
+   - Tone & Voice: `+20`
+   - Accessibility / Contrast: `+15`
+2. **Severity & Confidence Adjustments**:
+   - `severity === 'high'`: `+15`
+   - `severity === 'low'`: `-10`
+   - `confidence === 'clear'`: `+10`
+   - `confidence === 'unverified'`: `-15` (mitigates false positive noise)
+3. **Regulated & Absolute Term Bonuses**:
+   - Regulated / high-risk terms (`guarantee`, `100%`, `cure`, `free`, `best`, `only`, `lowest price`): `+10` per unique match (capped at `+20`).
+4. **Channel Multiplier**:
+   - `press_release`: `×1.4` (maximum public / legal exposure)
+   - `paid_ad` / `billboard`: `×1.3`
+   - `website`: `×1.1`
+   - `social`: `×1.0`
+   - `internal`: `×0.7`
+5. **Risk Levels**:
+   - **Critical**: `score >= 75`
+   - **High**: `score >= 50`
+   - **Medium**: `score >= 25`
+   - **Low**: `score < 25`
+
+### Explainability
+Every finding includes `riskDrivers[]`, an array detailing the exact arithmetic adjustments made (e.g. `["Factual or promotional claim issue (+45)", "High severity designation (+15)", "Absolute or regulated claims: '100%' (+10)"]`).
+
+---
+
+## 5. Database Collections
 
 - `users`: Credentials, names, emails, and roles (`creator`, `manager`, `reviewer`, `admin`).
 - `workspaces`: Brand organization scope and version counter (used for cache invalidation).

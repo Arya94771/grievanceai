@@ -44,6 +44,36 @@ const FindingSchema = new mongoose.Schema({
   decidedAt: { type: Date, default: null },
   decisionNote: { type: String, default: '' },
   verifiedAgainst: { type: String, default: '' },
+  // I1 Brand Intelligence & Risk Prioritisation
+  riskScore: { type: Number, default: 0, min: 0, max: 100 },
+  riskLevel: { type: String, enum: ['critical', 'high', 'medium', 'low'], default: 'low' },
+  riskDrivers: [{ type: String }],
+  
+  // I2 Business Impact
+  businessImpact: { type: String, default: '' },
+  impactTag: { 
+    type: String, 
+    enum: ['legal', 'reputational', 'financial', 'accessibility', 'brand-consistency', ''],
+    default: ''
+  },
+
+  // I3 Recurrence Fingerprint
+  recurrenceFingerprint: { type: String, default: '', index: true },
+  isRecurring: { type: Boolean, default: false },
+
+  // E3 Verification Trail
+  verificationTrail: [{
+    step: { type: String },
+    name: { type: String },
+    passed: { type: Boolean },
+    evidence: { type: String }
+  }],
+  verificationStatus: {
+    type: String,
+    enum: ['verified', 'partially_verified', 'unverified'],
+    default: 'unverified'
+  },
+
   version: { type: Number, default: 1 }, // Optimistic locking
   createdAt: { type: Date, default: Date.now }
 });

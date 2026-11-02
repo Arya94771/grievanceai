@@ -21,6 +21,7 @@ const { runVisualAudit } = require('../services/aiVisionReview');
 const { extractTextFromFile } = require('../services/extractor');
 const { generateMarkdownReport, generateHtmlReport } = require('../services/reportGenerator');
 const { processAndSecureImage, saveToGridFS, readFromGridFS } = require('../services/imageStorage');
+const { calculateFindingRisk, calculateDraftRisk } = require('../services/riskScorer');
 
 // Configure multer for memory storage (max 10MB)
 const upload = multer({
@@ -325,29 +326,35 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
     // Clear previous open findings
     await Finding.deleteMany({ draftId: draft._id, status: 'open' });
 
-    const findingsToInsert = combinedFindings.map(f => ({
-      draftId: draft._id,
-      revisionId: draft.currentRevisionId,
-      mediaType: f.mediaType || 'text',
-      creativeId: f.creativeId || null,
-      region: f.region || null,
-      evidenceCropId: f.evidenceCropId || null,
-      approvedAssetId: f.approvedAssetId || null,
-      measured: f.measured || {},
-      quote: f.quote,
-      start: f.start || 0,
-      end: f.end || 0,
-      category: f.category,
-      severity: f.severity,
-      confidence: f.confidence,
-      sourceType: f.sourceType,
-      sourceId: f.sourceId,
-      sourceText: f.sourceText,
-      reason: f.reason,
-      suggestion: f.suggestion,
-      status: 'open',
-      createdAt: new Date()
-    }));
+    const findingsToInsert = combinedFindings.map(f => {
+      const risk = calculateFindingRisk(f, draft.channel || 'social');
+      return {
+        draftId: draft._id,
+        revisionId: draft.currentRevisionId,
+        mediaType: f.mediaType || 'text',
+        creativeId: f.creativeId || null,
+        region: f.region || null,
+        evidenceCropId: f.evidenceCropId || null,
+        approvedAssetId: f.approvedAssetId || null,
+        measured: f.measured || {},
+        quote: f.quote,
+        start: f.start || 0,
+        end: f.end || 0,
+        category: f.category,
+        severity: f.severity,
+        confidence: f.confidence,
+        sourceType: f.sourceType,
+        sourceId: f.sourceId,
+        sourceText: f.sourceText,
+        reason: f.reason,
+        suggestion: f.suggestion,
+        riskScore: risk.riskScore,
+        riskLevel: risk.riskLevel,
+        riskDrivers: risk.riskDrivers,
+        status: 'open',
+        createdAt: new Date()
+      };
+    });
 
     const savedFindings = await Finding.insertMany(findingsToInsert);
 
