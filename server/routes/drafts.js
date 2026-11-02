@@ -22,6 +22,7 @@ const { extractTextFromFile } = require('../services/extractor');
 const { generateMarkdownReport, generateHtmlReport } = require('../services/reportGenerator');
 const { processAndSecureImage, saveToGridFS, readFromGridFS } = require('../services/imageStorage');
 const { calculateFindingRisk, calculateDraftRisk } = require('../services/riskScorer');
+const { computeFindingFingerprint } = require('../services/recurrenceDetector');
 
 // Configure multer for memory storage (max 10MB)
 const upload = multer({
@@ -328,6 +329,7 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
 
     const findingsToInsert = combinedFindings.map(f => {
       const risk = calculateFindingRisk(f, draft.channel || 'social');
+      const fp = computeFindingFingerprint(req.user.workspaceId, f);
       return {
         draftId: draft._id,
         revisionId: draft.currentRevisionId,
@@ -351,6 +353,7 @@ router.post('/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
         riskScore: risk.riskScore,
         riskLevel: risk.riskLevel,
         riskDrivers: risk.riskDrivers,
+        recurrenceFingerprint: fp,
         status: 'open',
         createdAt: new Date()
       };
